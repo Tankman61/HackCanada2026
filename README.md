@@ -111,10 +111,11 @@ Consider the full lifecycle of a concert-goer when deciding where your solution 
 
 ## Setup
 
-1. Clone this repository
-2. Open `ReactivChallengeKit.xcodeproj` in Xcode 26+
-3. Select an iPhone simulator
-4. Build and Run (Cmd+R)
+1. Download [Xcode 26+](https://developer.apple.com/xcode/) from the Mac App Store or Apple Developer website (free, requires a Mac)
+2. Clone this repository
+3. Open `ReactivChallengeKit.xcodeproj` in Xcode
+4. Select an iPhone simulator
+5. Build and Run (Cmd+R)
 
 No dependencies. No SPM packages. If Xcode works, the project works.
 
