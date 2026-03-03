@@ -122,7 +122,7 @@ Consider the full lifecycle of a concert-goer when deciding where your solution 
 
 1. Download [Xcode 26+](https://developer.apple.com/xcode/) from the Mac App Store or Apple Developer website (free, requires a Mac)
 2. Clone this repository
-3. Open `ReactivChallengeKit.xcodeproj` in Xcode
+3. Open `ReactivChallengeKit/ReactivChallengeKit.xcodeproj` in Xcode
 4. Select an iPhone simulator
 5. Build and Run (Cmd+R)
 
@@ -171,7 +171,7 @@ You can trigger experiences in two ways:
 - Enter a URL in the console (simulates a real App Clip trigger)
 
 Quickly scan:
-- `docs/README.md` — quickstart + rules
+- `docs/README.md` — docs index
 - `docs/CONSTRAINTS.md` — App Clip limits
 - `docs/SUBMISSION.md` — what judges expect
 
@@ -313,22 +313,41 @@ Your submission should address the following:
 
 ```
 ReactivChallengeKit/
-  App/
-    ReactivChallengeKitApp.swift   # App entry point
-  Simulator/
-    SimulatorShell.swift           # Main container + clip host
-    ClipRouter.swift               # URL pattern matching
-    LandingView.swift              # Home screen with clip cards
-    InvocationConsole.swift        # URL input
-    ConstraintBanner.swift         # Download banner
-    MomentTimer.swift              # Elapsed time overlay
-  Protocol/
-    ClipExperience.swift           # Protocol you conform to
-    ClipContext.swift              # URL data passed to your clip
-  Examples/
-    VenueMerchExperience.swift     # Example: venue merch flow
-    TrailCheckInExperience.swift   # Working example (non-trivial clip)
-    EmptyClipExperience.swift      # Your starting template
+  ReactivChallengeKit.xcodeproj
+  ReactivChallengeKit/
+    ReactivChallengeKitApp.swift
+    SubmissionRegistry.swift
+    GeneratedSubmissions.swift
+    Simulator/
+      SimulatorShell.swift
+      ClipRouter.swift
+      LandingView.swift
+      InvocationConsole.swift
+      ConstraintBanner.swift
+      MomentTimer.swift
+    Protocol/
+      ClipExperience.swift
+      ClipContext.swift
+    Components/
+      ... reusable UI building blocks ...
+    Examples/
+      VenueMerchExperience.swift
+      TrailCheckInExperience.swift
+      EmptyClipExperience.swift
+    MockData/
+      ChallengeMockData.swift
+Submissions/
+  _template/
+  <team-slug>/
+scripts/
+  doctor.sh
+  create-submission.sh
+  generate-registry.sh
+docs/
+  README.md
+  CONSTRAINTS.md
+  JOURNEY.md
+  SUBMISSION.md
 ```
 
 ## Challenge Rules
