@@ -72,10 +72,10 @@ Real App Clips can use most iOS frameworks, but some are restricted:
 
 ## The 8-Hour Push Notification Window
 
-This is unique to App Clips and critical to the One Live challenge. When a user opens an App Clip, the app can send **ephemeral push notifications for up to 8 hours** — without the user explicitly granting notification permission.
+This is unique to App Clips and critical to this challenge. When a user opens an App Clip, the app can send **ephemeral push notifications for up to 8 hours** — without the user explicitly granting notification permission.
 
 This means:
-- Fan opens a Clip at 7 PM when doors open → One Live can push notifications until 3 AM
+- Fan opens a Clip at 7 PM when doors open → the brand can push notifications until 3 AM
 - Each notification can deep-link back to the Clip or to the online store
 - The window resets each time the Clip is opened
 

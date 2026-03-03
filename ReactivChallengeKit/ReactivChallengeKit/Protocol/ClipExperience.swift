@@ -134,12 +134,12 @@ enum InvocationSource: String, CaseIterable, Identifiable {
 
     var triggerLabel: String {
         switch self {
-        case .qrCode: return "Scan Code"
-        case .nfcTag: return "Tap Tag"
-        case .iMessage: return "Open Link"
-        case .smartBanner: return "Tap Banner"
-        case .appleMaps: return "View Place"
-        case .siri: return "Suggested"
+        case .qrCode: return "Open Clip"
+        case .nfcTag: return "Open Clip"
+        case .iMessage: return "Open Clip"
+        case .smartBanner: return "Open Clip"
+        case .appleMaps: return "Open Clip"
+        case .siri: return "Open Clip"
         }
     }
 }

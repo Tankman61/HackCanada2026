@@ -6,7 +6,7 @@ An App Clip simulator for Hack Canada. Build creative App Clip experiences witho
 
 An App Clip is a lightweight slice of an app that lets users complete a specific task quickly without downloading the full app. They can be triggered by:
 
-- Scanning an App Clip code (similar to a QR code)
+- Opening from an App Clip code or URL trigger
 - Tapping an NFC tag
 - Tapping a link sent via iMessage
 - Tapping a Smart App Banner in Safari
@@ -38,7 +38,7 @@ Starter templates are provided so you can focus on your solution, not scaffoldin
 
 ### AI-Powered Personalization
 
-**Scenario:** A customer walks up to a coffee shop counter, scans a QR code, and a Clip launches. Using available context like time of day, weather, and location, the Clip delivers intelligent, personalized recommendations without any login or stored preferences.
+**Scenario:** A customer walks up to a coffee shop counter, opens a Clip from a code or link trigger, and gets instant personalized recommendations using context like time of day, weather, and location.
 
 **The problem:** Personalization today requires accounts, history, and data collection. App Clips have none of that. But context is everywhere: time, location, weather, device locale, even the URL itself. AI can bridge the gap between zero knowledge and a tailored experience.
 
@@ -52,7 +52,7 @@ Starter templates are provided so you can focus on your solution, not scaffoldin
 
 ### In-Store Companion Shopping
 
-**Scenario:** A shopper walks into a retail location. The store's App Clip surfaces automatically via Apple Maps, geo-fenced Siri Suggestions, or an in-store QR code. The Clip becomes a companion shopping experience: browse products, view details and pricing, and self-checkout directly from the phone.
+**Scenario:** A shopper walks into a retail location. The store's App Clip surfaces via Apple Maps, Siri Suggestions, or a venue trigger link. The Clip becomes a companion shopping experience: browse products, view details and pricing, and self-checkout directly from the phone.
 
 **The problem:** In-store shopping still relies on checkout lines, clunky kiosks, and staff availability. A Clip could replace all of that, but only if product discovery is fast and payment is seamless in an ephemeral, no-account experience.
 
@@ -85,7 +85,7 @@ Starter templates are provided so you can focus on your solution, not scaffoldin
 
 ### Live Events — Arenas, Concerts & Sports
 
-**Scenario:** A fan arrives at a venue, scans a QR code, and a Clip launches instantly, enabling merch purchases, real-time engagement, signups, and more.
+**Scenario:** A fan arrives at a venue, opens a Clip from a trigger, and launches instantly into merch purchases, real-time engagement, signups, and more.
 
 **The problem:** Artists and performers don't know who their audience is. Ticket platforms report sales totals but share zero fan-level data. Artists end up running ads just to reconnect with people who already showed up.
 
@@ -99,7 +99,7 @@ Consider the full lifecycle of a concert-goer when deciding where your solution 
 
 1. **Discovery** — A fan learns about a concert in their city through social media ads, posts from friends, or organic search.
 2. **Ticket Purchase** — The fan browses and buys tickets through Ticketmaster or a similar platform.
-3. **The Wait** — The period between buying tickets and the show itself — often weeks or months. Fans are engaged but have no direct relationship with One Live.
+3. **The Wait** — The period between buying tickets and the show itself — often weeks or months. Fans are engaged but brands have no direct relationship with them.
 4. **Show Day** — The fan arrives at the venue, waits in queues, and moves through the event experience. High purchase intent, high friction.
 5. **Post-Show Afterglow** — The fan leaves the show in a heightened emotional state. Engagement and nostalgia are high in the hours and days that follow.
 
@@ -190,7 +190,7 @@ Your submission should address the following:
 - **Proposed solution** — How does your solution use Reactiv Clips? How is the Clip invoked? What does the user experience look like end-to-end?
 - **Platform extensions (if applicable)** — If your solution requires new Reactiv Clips capabilities, describe what they are and how they would work.
 - **Prototype or mockup** — A visual demonstration of the key user flows (wireframes, clickable prototype, or equivalent).
-- **Impact hypothesis** — How does your solution increase One Live's merchandise revenue? Be specific about which channel (venue, online, or both) and why.
+- **Impact hypothesis** — How does your solution increase merchandise revenue? Be specific about which channel (venue, online, or both) and why.
 
 ## Project Structure
 

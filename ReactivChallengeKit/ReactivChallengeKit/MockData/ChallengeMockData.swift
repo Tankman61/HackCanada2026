@@ -1,4 +1,4 @@
-//  OneLiveMockData.swift
+//  ChallengeMockData.swift
 //  ReactivChallengeKit
 //
 //  Copyright © 2025 Reactiv Technologies Inc. All rights reserved.
@@ -64,7 +64,7 @@ struct NotificationTemplate: Identifiable {
 
 // MARK: - Mock Data
 
-enum OneLiveMockData {
+enum ChallengeMockData {
 
     // MARK: Artists
 
@@ -213,42 +213,37 @@ enum OneLiveMockData {
     // MARK: Notification Templates
 
     static let notificationTemplates: [NotificationTemplate] = [
-        // Pre-show (The Wait)
         NotificationTemplate(
-            title: "🎤 Show day is here!",
-            body: "Doors open at 6 PM. Skip the merch line — browse and pre-order now.",
+            title: "Show day is here",
+            body: "Doors open at 6 PM. Skip the merch line and pre-order now.",
             journeyStage: "The Wait",
             triggerDescription: "Sent morning of show day",
             delayFromInvocation: 0
         ),
-        // Show Day - early
         NotificationTemplate(
-            title: "🔥 Limited drop just went live",
-            body: "Venue-exclusive hoodie — only 200 made. Grab yours before they're gone.",
+            title: "Limited drop just went live",
+            body: "Venue-exclusive hoodie. Grab yours before they are gone.",
             journeyStage: "Show Day",
             triggerDescription: "Sent when doors open",
             delayFromInvocation: 60 * 30
         ),
-        // Show Day - during
         NotificationTemplate(
             title: "Skip the line",
-            body: "Order from your seat and pick up at Booth #3. No waiting.",
+            body: "Order from your seat and pick up at Booth #3.",
             journeyStage: "Show Day",
             triggerDescription: "Sent during the show",
             delayFromInvocation: 60 * 90
         ),
-        // Post-Show
         NotificationTemplate(
-            title: "Thanks for an incredible night 🎶",
-            body: "Missed the merch booth? Everything's online now — free shipping until midnight.",
+            title: "Thanks for an incredible night",
+            body: "Missed the merch booth? Everything is online now. Free shipping until midnight.",
             journeyStage: "Post-Show Afterglow",
             triggerDescription: "Sent 30 min after show ends",
             delayFromInvocation: 60 * 60 * 4
         ),
-        // Post-Show - next morning
         NotificationTemplate(
             title: "Last chance: tour-exclusive vinyl",
-            body: "Only 50 left from last night's show. Ships this week.",
+            body: "Only a few left from last night. Ships this week.",
             journeyStage: "Post-Show Afterglow",
             triggerDescription: "Sent next morning (within 8h window)",
             delayFromInvocation: 60 * 60 * 7

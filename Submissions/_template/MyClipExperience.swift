@@ -12,7 +12,7 @@ import SwiftUI
 // - Wrap content in ScrollView to avoid overlapping with the top bar
 
 struct MyClipExperience: ClipExperience {
-    static let urlPattern = "onelive.com/your-path/:param"
+    static let urlPattern = "example.com/your-path/:param"
     static let clipName = "Your Clip Name"
     static let clipDescription = "One line: what does the fan get in under 30 seconds?"
     static let teamName = "Your Team Name"
@@ -35,7 +35,7 @@ struct MyClipExperience: ClipExperience {
             ScrollView {
                 VStack(spacing: 20) {
                     // Use ArtistBanner for artist branding:
-                    // ArtistBanner(artist: OneLiveMockData.artists[0], venue: "Rogers Centre")
+                    // ArtistBanner(artist: ChallengeMockData.artists[0], venue: "Rogers Centre")
 
                     ClipHeader(
                         title: "Your Experience",
@@ -45,7 +45,7 @@ struct MyClipExperience: ClipExperience {
                     .padding(.top, 16)
 
                     // Use MerchGrid for product browsing:
-                    // MerchGrid(products: OneLiveMockData.products) { product in
+                    // MerchGrid(products: ChallengeMockData.products) { product in
                     //     cart.append(product)
                     // }
 
@@ -59,7 +59,7 @@ struct MyClipExperience: ClipExperience {
                     // ClipSuccessOverlay(message: "You're all set!")
 
                     // Use NotificationPreview to show your notification strategy:
-                    // NotificationPreview(template: OneLiveMockData.notificationTemplates[0])
+                    // NotificationPreview(template: ChallengeMockData.notificationTemplates[0])
                 }
                 .padding(.bottom, 16)
             }

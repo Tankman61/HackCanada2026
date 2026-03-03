@@ -7,9 +7,9 @@
 import SwiftUI
 
 struct VenueMerchExperience: ClipExperience {
-    static let urlPattern = "onelive.com/venue/:venueId/merch"
+    static let urlPattern = "example.com/venue/:venueId/merch"
     static let clipName = "Venue Merch"
-    static let clipDescription = "Scan at a merch booth to browse and buy — skip the line."
+    static let clipDescription = "Open from a venue trigger to browse and buy merch fast."
     static let touchpoint: JourneyTouchpoint = .showDay
     static let invocationSource: InvocationSource = .qrCode
 
@@ -18,13 +18,13 @@ struct VenueMerchExperience: ClipExperience {
     @State private var purchased = false
 
     private var artist: Artist {
-        OneLiveMockData.artists[0]
+        ChallengeMockData.artists[0]
     }
 
     private var venueName: String {
         let venueId = context.pathParameters["venueId"] ?? ""
-        return OneLiveMockData.venues.first { $0.name.lowercased().contains(venueId.lowercased()) }?.name
-            ?? OneLiveMockData.venues[0].name
+        return ChallengeMockData.venues.first { $0.name.lowercased().contains(venueId.lowercased()) }?.name
+            ?? ChallengeMockData.venues[0].name
     }
 
     var body: some View {
@@ -33,7 +33,7 @@ struct VenueMerchExperience: ClipExperience {
                 VStack(spacing: 20) {
                     Spacer()
                     ClipSuccessOverlay(
-                        message: "Order confirmed!\nPick up at \(OneLiveMockData.venues[0].boothLocations[0])."
+                        message: "Order confirmed!\nPick up at \(ChallengeMockData.venues[0].boothLocations[0])."
                     )
                     Spacer()
                 }
@@ -43,7 +43,7 @@ struct VenueMerchExperience: ClipExperience {
                         ArtistBanner(artist: artist, venue: venueName)
                             .padding(.top, 8)
 
-                        MerchGrid(products: OneLiveMockData.featuredProducts) { product in
+                        MerchGrid(products: ChallengeMockData.featuredProducts) { product in
                             cart.append(product)
                         }
 

@@ -131,7 +131,7 @@ struct ClipHostView: View {
                 }
             }
 
-            ForEach(Array(OneLiveMockData.notificationTemplates.prefix(3))) { template in
+            ForEach(Array(ChallengeMockData.notificationTemplates.prefix(3))) { template in
                 HStack(alignment: .top, spacing: 8) {
                     Circle()
                         .fill(.orange)

@@ -14,11 +14,11 @@ import SwiftUI
 struct EmptyClipExperience: ClipExperience {
     // TODO: Set your URL pattern. Use :paramName for path parameters.
     // Examples:
-    //   "onelive.com/show/:showId/merch"       — Show Day merch
-    //   "onelive.com/artist/:artistId/preorder" — Pre-show pre-order
-    //   "onelive.com/venue/:venueId/booth/:id"  — Specific booth
-    //   "onelive.com/aftershow/:showId"          — Post-show engagement
-    static let urlPattern = "onelive.com/your-path/:param"
+    //   "example.com/show/:showId/merch"        — Show Day merch
+    //   "example.com/artist/:artistId/preorder" — Pre-show pre-order
+    //   "example.com/venue/:venueId/booth/:id"  — Specific booth
+    //   "example.com/aftershow/:showId"         — Post-show engagement
+    static let urlPattern = "example.com/your-path/:param"
 
     static let clipName = "Your Clip Name"
     static let clipDescription = "One line: what does the fan get in under 30 seconds?"
@@ -56,10 +56,10 @@ struct EmptyClipExperience: ClipExperience {
                     //   NotificationPreview(template:)   — show notification strategy
                     //
                     // Available mock data:
-                    //   OneLiveMockData.artists          — artist profiles
-                    //   OneLiveMockData.products         — merch catalog
-                    //   OneLiveMockData.venues           — venue info
-                    //   OneLiveMockData.notificationTemplates — push notification examples
+                    //   ChallengeMockData.artists              — artist profiles
+                    //   ChallengeMockData.products             — merch catalog
+                    //   ChallengeMockData.venues               — venue info
+                    //   ChallengeMockData.notificationTemplates — push notification examples
 
                     GlassEffectContainer {
                         VStack(spacing: 8) {

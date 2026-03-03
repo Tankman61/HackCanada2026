@@ -1,6 +1,6 @@
 # Concert Customer Journey — Touchpoint Guide
 
-Each touchpoint represents a moment where a Reactiv Clip could create value for One Live and the fan. Your solution should target **at least one** of these and make a clear case for why it's the most valuable opportunity.
+Each touchpoint represents a moment where a Reactiv Clip could create value for both brand and user. Your solution should target **at least one** of these and make a clear case for why it is the most valuable opportunity.
 
 ---
 
@@ -24,7 +24,7 @@ Each touchpoint represents a moment where a Reactiv Clip could create value for 
 
 **Revenue impact:** Online sales (higher margin, no venue split).
 
-**Starter URL pattern:** `onelive.com/artist/:artistId/tour`
+**Starter URL pattern:** `example.com/artist/:artistId/tour`
 
 **Key question to answer:** How do you create merch awareness at the same moment the fan is deciding whether to go?
 
@@ -32,7 +32,7 @@ Each touchpoint represents a moment where a Reactiv Clip could create value for 
 
 ## 2. Ticket Purchase
 
-**When it happens:** The fan is on Ticketmaster buying tickets. One Live has no presence in this flow — Ticketmaster doesn't share customer data.
+**When it happens:** The fan is on Ticketmaster buying tickets. The merchant has no presence in this flow — Ticketmaster doesn't share customer data.
 
 **Emotional state:** Committed, spending mode, peak excitement about the upcoming show.
 
@@ -50,15 +50,15 @@ Each touchpoint represents a moment where a Reactiv Clip could create value for 
 
 **Revenue impact:** Online sales, potentially venue pickup (pre-order model).
 
-**Starter URL pattern:** `onelive.com/show/:showId/preorder`
+**Starter URL pattern:** `example.com/show/:showId/preorder`
 
-**Key question to answer:** How do you insert One Live into a moment that Ticketmaster currently owns end-to-end, without any Ticketmaster integration?
+**Key question to answer:** How do you insert the merchant into a moment that Ticketmaster currently owns end-to-end, without any Ticketmaster integration?
 
 ---
 
 ## 3. The Wait
 
-**When it happens:** Days, weeks, or months between ticket purchase and show day. The fan has tickets but no relationship with One Live.
+**When it happens:** Days, weeks, or months between ticket purchase and show day. The fan has tickets but no direct relationship with the merchant.
 
 **Emotional state:** Anticipation building, periodic bursts of excitement, sharing plans with friends.
 
@@ -77,7 +77,7 @@ Each touchpoint represents a moment where a Reactiv Clip could create value for 
 
 **Revenue impact:** Online sales (pre-orders).
 
-**Starter URL pattern:** `onelive.com/artist/:artistId/merch`
+**Starter URL pattern:** `example.com/artist/:artistId/merch`
 
 **Key question to answer:** How do you maintain engagement over weeks without a persistent app, using only ephemeral Clips?
 
@@ -105,7 +105,7 @@ Each touchpoint represents a moment where a Reactiv Clip could create value for 
 
 **Revenue impact:** Venue sales (capturing lost line-avoiders) + potentially online (order from seat, ship to home).
 
-**Starter URL pattern:** `onelive.com/venue/:venueId/merch`
+**Starter URL pattern:** `example.com/venue/:venueId/merch`
 
 **Key question to answer:** How do you capture the fan who wants merch but won't wait in a 30-minute line?
 
@@ -131,9 +131,9 @@ Each touchpoint represents a moment where a Reactiv Clip could create value for 
 
 **Notification strategy:** This is where the 8-hour window is most powerful. If the fan opened a Clip at doors (7 PM), you can push until 3 AM. "Thanks for an incredible night — grab the tour vinyl before it's gone. Free shipping until midnight."
 
-**Revenue impact:** Online sales (highest margin, no venue split). This is the most profitable channel for One Live.
+**Revenue impact:** Online sales (highest margin, no venue split). This is often the most profitable channel for merchants.
 
-**Starter URL pattern:** `onelive.com/aftershow/:showId`
+**Starter URL pattern:** `example.com/aftershow/:showId`
 
 **Key question to answer:** How do you convert post-show emotion into a purchase before the feeling fades?
 

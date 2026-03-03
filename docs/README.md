@@ -4,7 +4,7 @@ An App Clip simulator for Hack Canada. Build creative App Clip experiences witho
 
 An App Clip is a lightweight slice of an app that lets users complete a specific task quickly, without downloading the full app. They can be triggered by:
 
-- Scanning an App Clip code (similar to a QR code)
+- Opening from an App Clip code or URL trigger
 - Tapping an NFC tag
 - Tapping a link sent via iMessage
 - Tapping a Smart App Banner in Safari
@@ -100,7 +100,7 @@ Open `Submissions/YourTeamName/MyClipExperience.swift`. Rename the struct, set y
 
 ```swift
 struct PreShowHypeExperience: ClipExperience {
-    static let urlPattern = "onelive.com/show/:showId/preorder"
+    static let urlPattern = "example.com/show/:showId/preorder"
     static let clipName = "Pre-Show Pre-Order"
     static let clipDescription = "Pre-order merch before the show — skip the line on show day."
     static let teamName = "Team Waterloo"
@@ -114,12 +114,12 @@ struct PreShowHypeExperience: ClipExperience {
             ClipBackground()
             ScrollView {
                 VStack(spacing: 16) {
-                    ArtistBanner(artist: OneLiveMockData.artists[0], venue: "Rogers Centre")
+                    ArtistBanner(artist: ChallengeMockData.artists[0], venue: "Rogers Centre")
 
                     if ordered {
                         ClipSuccessOverlay(message: "Pre-order confirmed! Pick up at Booth #3.")
                     } else {
-                        MerchGrid(products: OneLiveMockData.products) { product in
+                        MerchGrid(products: ChallengeMockData.products) { product in
                             cart.append(product)
                         }
                         if !cart.isEmpty {
@@ -154,7 +154,7 @@ If it does not appear, run `bash scripts/generate-registry.sh` once and rebuild.
 
 ### Step 4: Test
 
-Type your invocation URL in the console at the bottom (e.g., `onelive.com/show/tonight/preorder`) and tap **Invoke**.
+Type your invocation URL in the console at the bottom (e.g., `example.com/show/tonight/preorder`) and tap **Invoke**.
 
 ---
 
@@ -195,17 +195,17 @@ Pre-built components you can compose without deep SwiftUI knowledge. See `Reacti
 
 ## Mock Data
 
-`OneLiveMockData` provides ready-to-use data so you can focus on the experience:
+`ChallengeMockData` provides ready-to-use data so you can focus on the experience:
 
 | Data | Access |
 |---|---|
-| Artist profiles | `OneLiveMockData.artists` |
-| Merch catalog (8 items) | `OneLiveMockData.products` |
-| Featured products (top 4) | `OneLiveMockData.featuredProducts` |
-| Products by category | `OneLiveMockData.products(for: .apparel)` |
-| Venue info | `OneLiveMockData.venues` |
-| Show schedule | `OneLiveMockData.shows` |
-| Push notification examples | `OneLiveMockData.notificationTemplates` |
+| Artist profiles | `ChallengeMockData.artists` |
+| Merch catalog (8 items) | `ChallengeMockData.products` |
+| Featured products (top 4) | `ChallengeMockData.featuredProducts` |
+| Products by category | `ChallengeMockData.products(for: .apparel)` |
+| Venue info | `ChallengeMockData.venues` |
+| Show schedule | `ChallengeMockData.shows` |
+| Push notification examples | `ChallengeMockData.notificationTemplates` |
 
 ---
 
