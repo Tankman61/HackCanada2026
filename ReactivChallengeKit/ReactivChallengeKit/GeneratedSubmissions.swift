@@ -4994,15 +4994,15 @@ private struct CoppedLoopingVideoPlayer: View {
 
 @MainActor
 private final class CoppedLoopingVideoController: ObservableObject {
-    let player = AVQueuePlayer()
+    let player = AVPlayer()
 
     @Published var isReady = false
     @Published var didFail = false
 
-    private static let playbackLoadTimeoutSeconds: UInt64 = 8
+    private static let playbackLoadTimeoutSeconds: UInt64 = 20
     private var configuredURL: URL?
-    private var looper: AVPlayerLooper?
     private var statusObservation: NSKeyValueObservation?
+    private var endObserver: NSObjectProtocol?
     private var loadTimeoutTask: Task<Void, Never>?
     private var isActive = false
 
@@ -5020,9 +5020,12 @@ private final class CoppedLoopingVideoController: ObservableObject {
 
         loadTimeoutTask?.cancel()
         statusObservation = nil
-        looper = nil
+        if let endObserver {
+            NotificationCenter.default.removeObserver(endObserver)
+            self.endObserver = nil
+        }
         player.pause()
-        player.removeAllItems()
+        player.replaceCurrentItem(with: nil)
 
         let item = AVPlayerItem(url: videoURL)
         statusObservation = item.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
@@ -5047,8 +5050,20 @@ private final class CoppedLoopingVideoController: ObservableObject {
                 }
             }
         }
-
-        looper = AVPlayerLooper(player: player, templateItem: item)
+        endObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.player.seek(to: .zero)
+                if self.isActive {
+                    self.player.play()
+                }
+            }
+        }
+        player.replaceCurrentItem(with: item)
         loadTimeoutTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: Self.playbackLoadTimeoutSeconds * 1_000_000_000)
             guard let self else { return }
@@ -5069,11 +5084,14 @@ private final class CoppedLoopingVideoController: ObservableObject {
 
     deinit {
         loadTimeoutTask?.cancel()
+        if let endObserver {
+            NotificationCenter.default.removeObserver(endObserver)
+        }
     }
 }
 
 private struct CoppedPlayerLayerView: UIViewRepresentable {
-    let player: AVQueuePlayer
+    let player: AVPlayer
 
     func makeUIView(context: Context) -> CoppedPlayerContainerView {
         let view = CoppedPlayerContainerView()
