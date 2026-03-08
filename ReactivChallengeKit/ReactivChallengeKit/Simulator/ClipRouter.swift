@@ -7,6 +7,10 @@
 import SwiftUI
 import UIKit
 
+extension Notification.Name {
+    static let clipRouterInvokeURL = Notification.Name("clip_router_invoke_url")
+}
+
 @Observable
 final class ClipRouter {
 
@@ -16,7 +20,7 @@ final class ClipRouter {
     ]
     // Legacy host aliases kept for backward-compatible invocation URLs.
     private static let hostAliases: [String: String] = [
-        "clip.clipstakes.app": "clip.copped.app"
+        "clipstakes.skilled5041.workers.dev": "clip.copped.app"
     ]
 
     static var allExperiences: [any ClipExperience.Type] {

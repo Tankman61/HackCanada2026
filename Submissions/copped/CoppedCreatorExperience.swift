@@ -8,6 +8,7 @@ struct CoppedCreatorExperience: ClipExperience {
     static let teamName = "Copped"
     static let touchpoint: JourneyTouchpoint = .purchase
     static let invocationSource: InvocationSource = .qrCode
+    private static let runtimeInvocationBaseURL = "https://clipstakes.skilled5041.workers.dev"
 
     enum CreatorStep {
         case loading
@@ -29,6 +30,7 @@ struct CoppedCreatorExperience: ClipExperience {
     @State private var recordedVideo: CoppedRecordedVideo?
     @State private var textOverlay = ""
     @State private var textPosition: CoppedTextPosition = .bottom
+    @State private var effectConfig = CoppedVideoEffectConfig.rioDefault
     @State private var validationMessage = ""
     @State private var isUploading = false
     @State private var reward: CoppedCreateClipResponse?
@@ -85,6 +87,16 @@ struct CoppedCreatorExperience: ClipExperience {
         CoppedRemoteBackend.resolveAPIBaseURL(override: apiBaseOverride)
     }
 
+    private var preferredProductIDFromQuery: String? {
+        let raw = context.queryParameters["product"]
+            ?? context.queryParameters["product_id"]
+            ?? context.queryParameters["productId"]
+        guard let raw else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return CoppedCatalog.canonicalProductID(trimmed)
+    }
+
     private var allowMockFallback: Bool {
         guard let raw = context.queryParameters["mock"]?.lowercased() else { return false }
         return raw == "1" || raw == "true" || raw == "yes"
@@ -92,28 +104,28 @@ struct CoppedCreatorExperience: ClipExperience {
 
     private var firstProductIDForViewer: String {
         if let first = products.first?.id {
-            return first
+            return CoppedCatalog.canonicalProductID(first)
         }
 
-        if receiptID.contains("hoodie") {
-            return "prod_hoodie"
+        let receiptLower = receiptID.lowercased()
+        if receiptLower.contains("hoodie") {
+            return "hoodie"
         }
-        if receiptID.contains("vinyl") {
-            return "prod_vinyl"
+        if receiptLower.contains("book") || receiptLower.contains("vinyl") {
+            return "book"
         }
-        return "prod_hoodie"
+        if receiptLower.contains("food") || receiptLower.contains("hat") || receiptLower.contains("poster") {
+            return "food"
+        }
+        return "hoodie"
     }
 
     private var trimmedTextOverlay: String {
         textOverlay.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var recorderPanelHeight: CGFloat {
-        let screenHeight = UIScreen.main.bounds.height
-        if screenHeight <= 700 {
-            return max(300, screenHeight * 0.5)
-        }
-        return min(520, screenHeight * 0.62)
+    private var frontendEffectConfig: CoppedVideoEffectConfig {
+        CoppedVideoEffectConfig(look: effectConfig.look, sticker: .none)
     }
 
     private var showsInlineErrorBanner: Bool {
@@ -230,7 +242,7 @@ struct CoppedCreatorExperience: ClipExperience {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
-        .clipStakesGlassCard(cornerRadius: 16)
+        .coppedGlassCard(cornerRadius: 16)
     }
 
     // MARK: - Content
@@ -285,7 +297,7 @@ struct CoppedCreatorExperience: ClipExperience {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)
-        .clipStakesGlassCard(cornerRadius: 18)
+        .coppedGlassCard(cornerRadius: 18)
     }
 
     // MARK: - Product Selection
@@ -317,7 +329,7 @@ struct CoppedCreatorExperience: ClipExperience {
                 }
                 .padding(.vertical, 24)
                 .frame(maxWidth: .infinity)
-                .clipStakesGlassCard(cornerRadius: 14)
+                .coppedGlassCard(cornerRadius: 14)
             }
 
             ForEach(products.indices, id: \.self) { index in
@@ -360,7 +372,7 @@ struct CoppedCreatorExperience: ClipExperience {
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .padding(12)
-            .clipStakesGlassCard(cornerRadius: 14)
+            .coppedGlassCard(cornerRadius: 14)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -370,6 +382,7 @@ struct CoppedCreatorExperience: ClipExperience {
         recordedVideo = nil
         textOverlay = ""
         textPosition = .bottom
+        effectConfig = .rioDefault
         step = .record
     }
 
@@ -405,15 +418,18 @@ struct CoppedCreatorExperience: ClipExperience {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .clipStakesGlassCard(cornerRadius: 12)
+            .coppedGlassCard(cornerRadius: 12)
 
-            CoppedVideoRecorder(minDuration: 5, maxDuration: 15) { result in
+            CoppedVideoRecorder(
+                minDuration: 5,
+                maxDuration: 15,
+                effectConfig: $effectConfig
+            ) { result in
                 recordedVideo = result
                 step = .aiValidating
                 Task { await runValidation() }
             }
-            .frame(height: recorderPanelHeight)
-            .clipStakesGlassCard(cornerRadius: 18)
+            .coppedGlassCard(cornerRadius: 18)
 
             HStack(spacing: 8) {
                 Text("Record one clean take, then tap Stop.")
@@ -465,7 +481,7 @@ struct CoppedCreatorExperience: ClipExperience {
         }
         .padding(.vertical, 24)
         .frame(maxWidth: .infinity)
-        .clipStakesGlassCard(cornerRadius: 18)
+        .coppedGlassCard(cornerRadius: 18)
     }
 
     // MARK: - Add Text
@@ -532,7 +548,7 @@ struct CoppedCreatorExperience: ClipExperience {
             }
         }
         .padding(14)
-        .clipStakesGlassCard(cornerRadius: 18)
+        .coppedGlassCard(cornerRadius: 18)
     }
 
     private var textPreviewCard: some View {
@@ -569,7 +585,8 @@ struct CoppedCreatorExperience: ClipExperience {
             .foregroundStyle(.white)
             .shadow(color: .black.opacity(0.45), radius: 4)
             .lineLimit(2)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, alignment: .center)
     }
 
     // MARK: - Confirm
@@ -586,6 +603,7 @@ struct CoppedCreatorExperience: ClipExperience {
             VStack(spacing: 1) {
                 confirmRow(label: "Product", value: selectedProduct?.name ?? "-")
                 confirmRow(label: "Duration", value: "\(recordedVideo?.durationSeconds ?? 0)s")
+                confirmRow(label: "Look", value: effectConfig.look.displayName)
                 confirmRow(label: "Overlay", value: trimmedTextOverlay.isEmpty ? "None" : trimmedTextOverlay)
                 confirmRow(label: "Position", value: textPosition.rawValue.capitalized)
             }
@@ -644,7 +662,7 @@ struct CoppedCreatorExperience: ClipExperience {
             }
         }
         .padding(14)
-        .clipStakesGlassCard(cornerRadius: 18)
+        .coppedGlassCard(cornerRadius: 18)
     }
 
     // MARK: - Success
@@ -789,9 +807,16 @@ struct CoppedCreatorExperience: ClipExperience {
                                 Image(systemName: item.kind == .conversion ? "cart.fill.badge.plus" : "video.badge.plus")
                                     .font(.custom(Manrope.bold, size: 11))
                                     .foregroundStyle(.white)
-                                Text(item.kind == .conversion ? "Conversion reward" : "Clip published")
-                                    .font(.custom(Manrope.medium, size: 11))
-                                    .foregroundStyle(.white.opacity(0.74))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.kind == .conversion ? "Someone bought from your reel" : "Clip published")
+                                        .font(.custom(Manrope.medium, size: 11))
+                                        .foregroundStyle(.white.opacity(0.82))
+                                    if item.kind == .conversion {
+                                        Text("You earned \(item.amountDisplay)")
+                                            .font(.custom(Manrope.medium, size: 10))
+                                            .foregroundStyle(.white.opacity(0.55))
+                                    }
+                                }
                                 Spacer()
                                 Text("+\(item.amountDisplay)")
                                     .font(.custom(Manrope.bold, size: 11))
@@ -801,12 +826,12 @@ struct CoppedCreatorExperience: ClipExperience {
                     }
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .clipStakesGlassCard(cornerRadius: 12)
+                    .coppedGlassCard(cornerRadius: 12)
                 }
             }
         }
         .padding(14)
-        .clipStakesGlassCard(cornerRadius: 18)
+        .coppedGlassCard(cornerRadius: 18)
     }
 
     // MARK: - Blocked / Failure
@@ -858,7 +883,7 @@ struct CoppedCreatorExperience: ClipExperience {
         }
         .padding(.vertical, 24)
         .frame(maxWidth: .infinity)
-        .clipStakesGlassCard(cornerRadius: 18)
+        .coppedGlassCard(cornerRadius: 18)
     }
 
     private var failureState: some View {
@@ -885,7 +910,7 @@ struct CoppedCreatorExperience: ClipExperience {
         }
         .padding(.vertical, 24)
         .padding(.horizontal, 14)
-        .clipStakesGlassCard(cornerRadius: 18)
+        .coppedGlassCard(cornerRadius: 18)
     }
 
     // MARK: - Helpers
@@ -982,7 +1007,14 @@ struct CoppedCreatorExperience: ClipExperience {
             let receipt = try await getReceipt()
             await MainActor.run {
                 products = receipt.products
-                step = .selectProduct
+                if let preferredID = preferredProductIDFromQuery,
+                   let preferred = receipt.products.first(where: {
+                       CoppedCatalog.canonicalProductID($0.id) == preferredID
+                   }) {
+                    beginRecording(for: preferred)
+                } else {
+                    step = .selectProduct
+                }
             }
         } catch {
             let fallbackProducts = await productsForUsedReceipt()
@@ -1048,15 +1080,17 @@ struct CoppedCreatorExperience: ClipExperience {
         }
 
         do {
-            let uploadResult = try await createUploadURL(productId: selectedProduct.id)
+            let backendProductID = CoppedCatalog.backendCompatibleProductID(selectedProduct.id)
+            let uploadResult = try await createUploadURL(productId: backendProductID)
             let upload = uploadResult.response
 
             var preparedVideoURL = recordedVideo.fileURL
-            if let sourceURL = preparedVideoURL, !trimmedTextOverlay.isEmpty {
-                let compositedURL = await CoppedVideoCompositor.addText(
+            if let sourceURL = preparedVideoURL {
+                let compositedURL = await CoppedVideoCompositor.renderForUpload(
                     to: sourceURL,
                     text: trimmedTextOverlay,
-                    position: textPosition
+                    position: textPosition,
+                    effectConfig: frontendEffectConfig
                 )
                 preparedVideoURL = compositedURL ?? sourceURL
             }
@@ -1070,12 +1104,23 @@ struct CoppedCreatorExperience: ClipExperience {
                 throw CreatorUploadError.remoteUploadFailed
             }
 
+            var didBakeVisualOverlays = false
+            if let originalURL = recordedVideo.fileURL, let preparedVideoURL {
+                didBakeVisualOverlays = preparedVideoURL != originalURL
+            }
+
+            var clipMetadataTextOverlay: String? = trimmedTextOverlay.isEmpty ? nil : trimmedTextOverlay
+            if didBakeVisualOverlays {
+                // Text has already been burned into exported media, avoid duplicate runtime caption in viewer.
+                clipMetadataTextOverlay = nil
+            }
+
             let createClipResult = try await createClip(
                 receiptId: receiptID,
                 deviceID: deviceID,
-                productId: selectedProduct.id,
+                productId: backendProductID,
                 videoURL: publishedVideo.videoURL,
-                textOverlay: trimmedTextOverlay.isEmpty ? nil : trimmedTextOverlay,
+                textOverlay: clipMetadataTextOverlay,
                 textPosition: textPosition,
                 durationSeconds: recordedVideo.durationSeconds
             )
@@ -1240,7 +1285,8 @@ struct CoppedCreatorExperience: ClipExperience {
 
     @MainActor
     private func viewerLink(for productID: String, clipID: String?) -> URL {
-        var components = URLComponents(string: "https://clip.copped.app/v/\(productID)")!
+        let canonicalProductID = CoppedCatalog.canonicalProductID(productID)
+        var components = URLComponents(string: "\(Self.runtimeInvocationBaseURL)/v/\(canonicalProductID)")!
         if let clipID, !clipID.isEmpty {
             components.queryItems = [URLQueryItem(name: "clip", value: clipID)]
         }
@@ -1249,7 +1295,7 @@ struct CoppedCreatorExperience: ClipExperience {
 
     @MainActor
     private func creatorDemoLink() -> URL {
-        URL(string: "https://clip.copped.app/c/demo")!
+        URL(string: "\(Self.runtimeInvocationBaseURL)/c/demo")!
     }
 
     private func openViewerForBlockedReceipt() async {

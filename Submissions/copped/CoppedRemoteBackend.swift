@@ -218,10 +218,10 @@ enum CoppedRemoteBackend {
                 clipID: clipID,
                 walletCode: walletCode,
                 instantCreditCents: instantCreditCents,
-                instantCreditDisplay: instantCreditCents.clipStakesCurrencyDisplay,
+                instantCreditDisplay: instantCreditCents.coppedCurrencyDisplay,
                 passURL: passURL,
                 availableBalanceCents: availableBalanceCents,
-                availableBalanceDisplay: availableBalanceCents.clipStakesCurrencyDisplay,
+                availableBalanceDisplay: availableBalanceCents.coppedCurrencyDisplay,
                 message: message
             )
         } catch let error as CoppedRemoteBackendError {
@@ -296,9 +296,9 @@ enum CoppedRemoteBackend {
             walletCode: walletCode,
             passURL: passURL,
             availableBalanceCents: availableBalanceCents,
-            availableBalanceDisplay: availableBalanceCents.clipStakesCurrencyDisplay,
+            availableBalanceDisplay: availableBalanceCents.coppedCurrencyDisplay,
             lifetimeEarnedCents: lifetimeEarnedCents,
-            lifetimeEarnedDisplay: lifetimeEarnedCents.clipStakesCurrencyDisplay,
+            lifetimeEarnedDisplay: lifetimeEarnedCents.coppedCurrencyDisplay,
             transactions: transactions
         )
     }
@@ -463,7 +463,7 @@ enum CoppedRemoteBackend {
                 id: stringValue(for: ["id"], in: item) ?? UUID().uuidString.lowercased(),
                 kind: kind,
                 amountCents: amount,
-                amountDisplay: amount.clipStakesCurrencyDisplay,
+                amountDisplay: amount.coppedCurrencyDisplay,
                 clipID: stringValue(for: ["clip_id", "clipId"], in: item) ?? "",
                 orderID: stringValue(for: ["order_id", "orderId"], in: item),
                 createdAt: dateValue(for: ["created_at", "createdAt"], in: item) ?? Date()
@@ -503,13 +503,13 @@ enum CoppedRemoteBackend {
             for: ["credited_display", "creditedDisplay", "display"],
             in: raw,
             fallback: reward
-        ) ?? creditedCents.clipStakesCurrencyDisplay
+        ) ?? creditedCents.coppedCurrencyDisplay
 
         let availableBalanceDisplay = stringValue(
             for: ["available_balance_display", "availableBalanceDisplay", "available_display", "availableDisplay", "balance_display", "balanceDisplay"],
             in: raw,
             fallback: balances
-        ) ?? availableBalanceCents.clipStakesCurrencyDisplay
+        ) ?? availableBalanceCents.coppedCurrencyDisplay
 
         return CoppedConversionResponse(
             success: success,
@@ -532,6 +532,9 @@ enum CoppedRemoteBackend {
         let productDict = dictValue(for: ["product"], in: raw)
         let nestedVideo = dictValue(for: ["video"], in: raw)
         let nestedWallet = dictValue(for: ["wallet"], in: raw)
+        let nestedOverlay = dictValue(for: ["overlay"], in: raw)
+            ?? dictValue(for: ["caption"], in: raw)
+            ?? dictValue(for: ["text"], in: raw)
 
         let productID = stringValue(for: ["product_id", "productId"], in: raw)
             ?? stringValue(for: ["id", "product_id", "productId"], in: productDict ?? [:])
@@ -542,7 +545,13 @@ enum CoppedRemoteBackend {
             ?? urlValue(for: ["playback_url", "playbackURL"], in: raw, apiBaseURL: apiBaseURL)
         guard let videoURL else { return nil }
 
-        let textOverlay = stringValue(for: ["text_overlay", "textOverlay", "caption"], in: raw)
+        let textOverlay = stringValue(
+            for: ["text_overlay", "textOverlay", "caption", "text", "overlay_text", "overlayText"],
+            in: raw
+        ) ?? stringValue(
+            for: ["text_overlay", "textOverlay", "caption", "text", "overlay_text", "overlayText"],
+            in: nestedOverlay ?? [:]
+        )
         let textPositionRaw = stringValue(for: ["text_position", "textPosition"], in: raw)?.lowercased()
         let textPosition = CoppedTextPosition(rawValue: textPositionRaw ?? "") ?? .bottom
 

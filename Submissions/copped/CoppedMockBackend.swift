@@ -103,7 +103,7 @@ actor CoppedMockBackend {
             return existing
         }
 
-        let templateProducts = receipts["order_demo_hoodie"]?.productIDs ?? ["prod_hoodie", "prod_hat"]
+        let templateProducts = receipts["order_demo_hoodie"]?.productIDs ?? ["hoodie", "book", "food"]
         let receipt = CoppedReceipt(
             id: receiptId,
             productIDs: templateProducts,
@@ -189,10 +189,10 @@ actor CoppedMockBackend {
             clipID: clipID,
             walletCode: account.walletCode,
             instantCreditCents: Self.instantRewardCents,
-            instantCreditDisplay: Self.instantRewardCents.clipStakesCurrencyDisplay,
+            instantCreditDisplay: Self.instantRewardCents.coppedCurrencyDisplay,
             passURL: account.passURL,
             availableBalanceCents: account.availableBalanceCents,
-            availableBalanceDisplay: account.availableBalanceCents.clipStakesCurrencyDisplay,
+            availableBalanceDisplay: account.availableBalanceCents.coppedCurrencyDisplay,
             message: "Clip is live. Credit added to your wallet balance."
         )
     }
@@ -225,7 +225,7 @@ actor CoppedMockBackend {
             latestPushByClipID[clip.id] = CoppedNotificationEvent(
                 clipID: clip.id,
                 title: "Conversion reward earned",
-                body: "\(Self.conversionRewardCents.clipStakesCurrencyDisplay) added to your wallet balance.",
+                body: "\(Self.conversionRewardCents.coppedCurrencyDisplay) added to your wallet balance.",
                 passURL: account.passURL,
                 createdAt: Date()
             )
@@ -237,9 +237,9 @@ actor CoppedMockBackend {
         return CoppedConversionResponse(
             success: true,
             creditedCents: Self.conversionRewardCents,
-            creditedDisplay: Self.conversionRewardCents.clipStakesCurrencyDisplay,
+            creditedDisplay: Self.conversionRewardCents.coppedCurrencyDisplay,
             availableBalanceCents: account.availableBalanceCents,
-            availableBalanceDisplay: account.availableBalanceCents.clipStakesCurrencyDisplay,
+            availableBalanceDisplay: account.availableBalanceCents.coppedCurrencyDisplay,
             pushSent: withinPushWindow,
             withinPushWindow: withinPushWindow
         )
@@ -291,9 +291,9 @@ actor CoppedMockBackend {
             walletCode: account.walletCode,
             passURL: account.passURL,
             availableBalanceCents: account.availableBalanceCents,
-            availableBalanceDisplay: account.availableBalanceCents.clipStakesCurrencyDisplay,
+            availableBalanceDisplay: account.availableBalanceCents.coppedCurrencyDisplay,
             lifetimeEarnedCents: account.lifetimeEarnedCents,
-            lifetimeEarnedDisplay: account.lifetimeEarnedCents.clipStakesCurrencyDisplay,
+            lifetimeEarnedDisplay: account.lifetimeEarnedCents.coppedCurrencyDisplay,
             transactions: Array(account.transactions.prefix(20))
         )
     }
@@ -310,6 +310,9 @@ actor CoppedMockBackend {
         demoSeedKey = key
 
         let legacyMap: [String: String] = [
+            "hoodie": primary,
+            "book": secondary,
+            "food": tertiary,
             "prod_hoodie": primary,
             "prod_vinyl": secondary,
             "prod_hat": tertiary,
@@ -340,7 +343,7 @@ actor CoppedMockBackend {
 
         receipts["order_demo_hoodie"] = CoppedReceipt(
             id: "order_demo_hoodie",
-            productIDs: [primary, secondary],
+            productIDs: [primary, secondary, tertiary],
             clipCreated: false,
             createdAt: Date().addingTimeInterval(-3600)
         )
@@ -361,8 +364,8 @@ actor CoppedMockBackend {
         var seededReceipts: [String: CoppedReceipt] = [:]
 
         let starterReceipts: [CoppedReceipt] = [
-            CoppedReceipt(id: "order_demo_hoodie", productIDs: ["prod_hoodie", "prod_hat"], clipCreated: false, createdAt: Date().addingTimeInterval(-3600)),
-            CoppedReceipt(id: "order_demo_vinyl", productIDs: ["prod_vinyl"], clipCreated: false, createdAt: Date().addingTimeInterval(-2400)),
+            CoppedReceipt(id: "order_demo_hoodie", productIDs: ["hoodie", "book", "food"], clipCreated: false, createdAt: Date().addingTimeInterval(-3600)),
+            CoppedReceipt(id: "order_demo_vinyl", productIDs: ["book"], clipCreated: false, createdAt: Date().addingTimeInterval(-2400)),
         ]
 
         for receipt in starterReceipts {
@@ -373,7 +376,7 @@ actor CoppedMockBackend {
             Self.makeSeedClip(
                 clipId: "clip_seed_1",
                 receiptId: "seed_receipt_1",
-                productId: "prod_hoodie",
+                productId: "hoodie",
                 text: "OBSESSED",
                 position: .bottom,
                 conversions: 4,
@@ -383,7 +386,7 @@ actor CoppedMockBackend {
             Self.makeSeedClip(
                 clipId: "clip_seed_2",
                 receiptId: "seed_receipt_2",
-                productId: "prod_hoodie",
+                productId: "hoodie",
                 text: "Runs true to size",
                 position: .top,
                 conversions: 2,
@@ -393,7 +396,7 @@ actor CoppedMockBackend {
             Self.makeSeedClip(
                 clipId: "clip_seed_3",
                 receiptId: "seed_receipt_3",
-                productId: "prod_vinyl",
+                productId: "book",
                 text: "Sound quality is insane",
                 position: .center,
                 conversions: 1,
@@ -476,7 +479,7 @@ actor CoppedMockBackend {
             id: UUID().uuidString.lowercased(),
             kind: kind,
             amountCents: amountCents,
-            amountDisplay: amountCents.clipStakesCurrencyDisplay,
+            amountDisplay: amountCents.coppedCurrencyDisplay,
             clipID: clipID,
             orderID: orderID,
             createdAt: Date()

@@ -8,6 +8,54 @@ enum CoppedTextPosition: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum CoppedVideoLook: String, Codable, CaseIterable, Identifiable {
+    case none
+    case rioHeat
+    case goldenHour
+    case coolTeal
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .none: return "Natural"
+        case .rioHeat: return "Rio Heat"
+        case .goldenHour: return "Golden Hour"
+        case .coolTeal: return "Cool Teal"
+        }
+    }
+}
+
+enum CoppedVideoSticker: String, Codable, CaseIterable, Identifiable {
+    case none
+    case shootingStar
+    case dolphinSplash
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .none: return "No Sticker"
+        case .shootingStar: return "Shooting Star"
+        case .dolphinSplash: return "Dolphin Splash"
+        }
+    }
+}
+
+struct CoppedVideoEffectConfig: Codable, Hashable {
+    var look: CoppedVideoLook
+    var sticker: CoppedVideoSticker
+
+    static let rioDefault = CoppedVideoEffectConfig(
+        look: .rioHeat,
+        sticker: .none
+    )
+
+    var isNeutral: Bool {
+        look == .none && sticker == .none
+    }
+}
+
 enum CoppedCaptureMode: String, Codable {
     case camera
     case simulator
@@ -47,11 +95,9 @@ struct CoppedProduct: Identifiable, Hashable, Codable {
 
 enum CoppedCatalog {
     static let fallbackProducts: [CoppedProduct] = [
-        CoppedProduct(id: "prod_hoodie", name: "Venue Hoodie", price: 75.00, systemImage: "tshirt.fill"),
-        CoppedProduct(id: "prod_shirt", name: "Tour T-Shirt", price: 40.00, systemImage: "tshirt"),
-        CoppedProduct(id: "prod_vinyl", name: "Limited Vinyl", price: 35.00, systemImage: "opticaldisc.fill"),
-        CoppedProduct(id: "prod_hat", name: "Snapback Hat", price: 30.00, systemImage: "baseballcap.fill"),
-        CoppedProduct(id: "prod_poster", name: "Signed Poster", price: 20.00, systemImage: "photo.artframe"),
+        CoppedProduct(id: "hoodie", name: "Hoodie", price: 75.00, systemImage: "tshirt.fill"),
+        CoppedProduct(id: "book", name: "Book", price: 30.00, systemImage: "book.fill"),
+        CoppedProduct(id: "food", name: "Food", price: 20.00, systemImage: "fork.knife"),
     ]
 
     private static let lock = NSLock()
@@ -61,8 +107,9 @@ enum CoppedCatalog {
 
     static func updatePublicProducts(_ products: [CoppedProduct]) {
         guard !products.isEmpty else { return }
+        let normalized = products.map(normalizedDemoProduct)
         lock.lock()
-        runtimeProductsByID = Dictionary(uniqueKeysWithValues: products.map { ($0.id, $0) })
+        runtimeProductsByID = Dictionary(uniqueKeysWithValues: normalized.map { ($0.id, $0) })
         lock.unlock()
     }
 
@@ -75,21 +122,100 @@ enum CoppedCatalog {
     }
 
     static func product(for id: String) -> CoppedProduct {
+        let normalizedID = normalizedDemoProductID(id)
+
         lock.lock()
-        let runtime = runtimeProductsByID[id]
+        let runtime = runtimeProductsByID[id] ?? runtimeProductsByID[normalizedID]
         lock.unlock()
 
         if let runtime {
             return runtime
         }
 
-        return fallbackProducts.first(where: { $0.id == id })
+        return fallbackProducts.first(where: { $0.id == normalizedID })
             ?? CoppedProduct(
-                id: id,
-                name: id.replacingOccurrences(of: "_", with: " ").capitalized,
+                id: normalizedID,
+                name: normalizedID.replacingOccurrences(of: "_", with: " ").capitalized,
                 price: 25.00,
                 systemImage: "shippingbox.fill"
             )
+    }
+
+    static func canonicalProductID(_ id: String) -> String {
+        normalizedDemoProductID(id)
+    }
+
+    static func backendCompatibleProductID(_ id: String) -> String {
+        switch normalizedDemoProductID(id) {
+        case "hoodie":
+            return "prod_hoodie"
+        case "book":
+            return "prod_vinyl"
+        case "food":
+            return "prod_hat"
+        default:
+            return id
+        }
+    }
+
+    static func queryProductIDs(for id: String) -> [String] {
+        let canonical = normalizedDemoProductID(id)
+        let variants: [String]
+        switch canonical {
+        case "hoodie":
+            variants = [canonical, "prod_hoodie", "prod_shirt"]
+        case "book":
+            variants = [canonical, "prod_vinyl"]
+        case "food":
+            variants = [canonical, "prod_hat", "prod_poster"]
+        default:
+            variants = [id]
+        }
+
+        var seen = Set<String>()
+        return variants.filter { seen.insert($0).inserted }
+    }
+
+    private static func normalizedDemoProduct(_ product: CoppedProduct) -> CoppedProduct {
+        let normalizedID = normalizedDemoProductID(product.id)
+        if normalizedID == product.id {
+            return product
+        }
+
+        if let fallback = fallbackProducts.first(where: { $0.id == normalizedID }) {
+            return CoppedProduct(
+                id: normalizedID,
+                name: fallback.name,
+                price: product.price,
+                systemImage: fallback.systemImage,
+                imageURL: product.imageURL
+            )
+        }
+
+        return CoppedProduct(
+            id: normalizedID,
+            name: product.name,
+            price: product.price,
+            systemImage: product.systemImage,
+            imageURL: product.imageURL
+        )
+    }
+
+    private static func normalizedDemoProductID(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = trimmed.lowercased()
+        if lower.isEmpty { return raw }
+
+        switch lower {
+        case "hoodie", "prod_hoodie", "prod_shirt", "tour_t-shirt", "tour t-shirt":
+            return "hoodie"
+        case "book", "prod_vinyl":
+            return "book"
+        case "food", "prod_hat", "prod_poster":
+            return "food"
+        default:
+            return trimmed
+        }
     }
 }
 
@@ -232,7 +358,7 @@ enum CoppedBackendError: LocalizedError {
 }
 
 extension Date {
-    nonisolated func clipStakesRelativeDescription(reference: Date = Date()) -> String {
+    nonisolated func coppedRelativeDescription(reference: Date = Date()) -> String {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: self, relativeTo: reference)
@@ -240,7 +366,7 @@ extension Date {
 }
 
 extension Int {
-    nonisolated var clipStakesCurrencyDisplay: String {
+    nonisolated var coppedCurrencyDisplay: String {
         String(format: "$%.2f", Double(self) / 100.0)
     }
 }

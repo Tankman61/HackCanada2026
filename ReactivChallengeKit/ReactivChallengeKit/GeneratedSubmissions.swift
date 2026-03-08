@@ -81,6 +81,7 @@ struct CoppedCreatorExperience: ClipExperience {
     static let teamName = "Copped"
     static let touchpoint: JourneyTouchpoint = .purchase
     static let invocationSource: InvocationSource = .qrCode
+    private static let runtimeInvocationBaseURL = "https://clipstakes.skilled5041.workers.dev"
 
     enum CreatorStep {
         case loading
@@ -102,6 +103,7 @@ struct CoppedCreatorExperience: ClipExperience {
     @State private var recordedVideo: CoppedRecordedVideo?
     @State private var textOverlay = ""
     @State private var textPosition: CoppedTextPosition = .bottom
+    @State private var effectConfig = CoppedVideoEffectConfig.rioDefault
     @State private var validationMessage = ""
     @State private var isUploading = false
     @State private var reward: CoppedCreateClipResponse?
@@ -158,6 +160,16 @@ struct CoppedCreatorExperience: ClipExperience {
         CoppedRemoteBackend.resolveAPIBaseURL(override: apiBaseOverride)
     }
 
+    private var preferredProductIDFromQuery: String? {
+        let raw = context.queryParameters["product"]
+            ?? context.queryParameters["product_id"]
+            ?? context.queryParameters["productId"]
+        guard let raw else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return CoppedCatalog.canonicalProductID(trimmed)
+    }
+
     private var allowMockFallback: Bool {
         guard let raw = context.queryParameters["mock"]?.lowercased() else { return false }
         return raw == "1" || raw == "true" || raw == "yes"
@@ -165,28 +177,28 @@ struct CoppedCreatorExperience: ClipExperience {
 
     private var firstProductIDForViewer: String {
         if let first = products.first?.id {
-            return first
+            return CoppedCatalog.canonicalProductID(first)
         }
 
-        if receiptID.contains("hoodie") {
-            return "prod_hoodie"
+        let receiptLower = receiptID.lowercased()
+        if receiptLower.contains("hoodie") {
+            return "hoodie"
         }
-        if receiptID.contains("vinyl") {
-            return "prod_vinyl"
+        if receiptLower.contains("book") || receiptLower.contains("vinyl") {
+            return "book"
         }
-        return "prod_hoodie"
+        if receiptLower.contains("food") || receiptLower.contains("hat") || receiptLower.contains("poster") {
+            return "food"
+        }
+        return "hoodie"
     }
 
     private var trimmedTextOverlay: String {
         textOverlay.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var recorderPanelHeight: CGFloat {
-        let screenHeight = UIScreen.main.bounds.height
-        if screenHeight <= 700 {
-            return max(300, screenHeight * 0.5)
-        }
-        return min(520, screenHeight * 0.62)
+    private var frontendEffectConfig: CoppedVideoEffectConfig {
+        CoppedVideoEffectConfig(look: effectConfig.look, sticker: .none)
     }
 
     private var showsInlineErrorBanner: Bool {
@@ -303,7 +315,7 @@ struct CoppedCreatorExperience: ClipExperience {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
-        .clipStakesGlassCard(cornerRadius: 16)
+        .coppedGlassCard(cornerRadius: 16)
     }
 
     // MARK: - Content
@@ -358,7 +370,7 @@ struct CoppedCreatorExperience: ClipExperience {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)
-        .clipStakesGlassCard(cornerRadius: 18)
+        .coppedGlassCard(cornerRadius: 18)
     }
 
     // MARK: - Product Selection
@@ -390,7 +402,7 @@ struct CoppedCreatorExperience: ClipExperience {
                 }
                 .padding(.vertical, 24)
                 .frame(maxWidth: .infinity)
-                .clipStakesGlassCard(cornerRadius: 14)
+                .coppedGlassCard(cornerRadius: 14)
             }
 
             ForEach(products.indices, id: \.self) { index in
@@ -433,7 +445,7 @@ struct CoppedCreatorExperience: ClipExperience {
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .padding(12)
-            .clipStakesGlassCard(cornerRadius: 14)
+            .coppedGlassCard(cornerRadius: 14)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -443,6 +455,7 @@ struct CoppedCreatorExperience: ClipExperience {
         recordedVideo = nil
         textOverlay = ""
         textPosition = .bottom
+        effectConfig = .rioDefault
         step = .record
     }
 
@@ -478,15 +491,18 @@ struct CoppedCreatorExperience: ClipExperience {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .clipStakesGlassCard(cornerRadius: 12)
+            .coppedGlassCard(cornerRadius: 12)
 
-            CoppedVideoRecorder(minDuration: 5, maxDuration: 15) { result in
+            CoppedVideoRecorder(
+                minDuration: 5,
+                maxDuration: 15,
+                effectConfig: $effectConfig
+            ) { result in
                 recordedVideo = result
                 step = .aiValidating
                 Task { await runValidation() }
             }
-            .frame(height: recorderPanelHeight)
-            .clipStakesGlassCard(cornerRadius: 18)
+            .coppedGlassCard(cornerRadius: 18)
 
             HStack(spacing: 8) {
                 Text("Record one clean take, then tap Stop.")
@@ -538,7 +554,7 @@ struct CoppedCreatorExperience: ClipExperience {
         }
         .padding(.vertical, 24)
         .frame(maxWidth: .infinity)
-        .clipStakesGlassCard(cornerRadius: 18)
+        .coppedGlassCard(cornerRadius: 18)
     }
 
     // MARK: - Add Text
@@ -605,7 +621,7 @@ struct CoppedCreatorExperience: ClipExperience {
             }
         }
         .padding(14)
-        .clipStakesGlassCard(cornerRadius: 18)
+        .coppedGlassCard(cornerRadius: 18)
     }
 
     private var textPreviewCard: some View {
@@ -642,7 +658,8 @@ struct CoppedCreatorExperience: ClipExperience {
             .foregroundStyle(.white)
             .shadow(color: .black.opacity(0.45), radius: 4)
             .lineLimit(2)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, alignment: .center)
     }
 
     // MARK: - Confirm
@@ -659,6 +676,7 @@ struct CoppedCreatorExperience: ClipExperience {
             VStack(spacing: 1) {
                 confirmRow(label: "Product", value: selectedProduct?.name ?? "-")
                 confirmRow(label: "Duration", value: "\(recordedVideo?.durationSeconds ?? 0)s")
+                confirmRow(label: "Look", value: effectConfig.look.displayName)
                 confirmRow(label: "Overlay", value: trimmedTextOverlay.isEmpty ? "None" : trimmedTextOverlay)
                 confirmRow(label: "Position", value: textPosition.rawValue.capitalized)
             }
@@ -717,7 +735,7 @@ struct CoppedCreatorExperience: ClipExperience {
             }
         }
         .padding(14)
-        .clipStakesGlassCard(cornerRadius: 18)
+        .coppedGlassCard(cornerRadius: 18)
     }
 
     // MARK: - Success
@@ -862,9 +880,16 @@ struct CoppedCreatorExperience: ClipExperience {
                                 Image(systemName: item.kind == .conversion ? "cart.fill.badge.plus" : "video.badge.plus")
                                     .font(.custom(Manrope.bold, size: 11))
                                     .foregroundStyle(.white)
-                                Text(item.kind == .conversion ? "Conversion reward" : "Clip published")
-                                    .font(.custom(Manrope.medium, size: 11))
-                                    .foregroundStyle(.white.opacity(0.74))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.kind == .conversion ? "Someone bought from your reel" : "Clip published")
+                                        .font(.custom(Manrope.medium, size: 11))
+                                        .foregroundStyle(.white.opacity(0.82))
+                                    if item.kind == .conversion {
+                                        Text("You earned \(item.amountDisplay)")
+                                            .font(.custom(Manrope.medium, size: 10))
+                                            .foregroundStyle(.white.opacity(0.55))
+                                    }
+                                }
                                 Spacer()
                                 Text("+\(item.amountDisplay)")
                                     .font(.custom(Manrope.bold, size: 11))
@@ -874,12 +899,12 @@ struct CoppedCreatorExperience: ClipExperience {
                     }
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .clipStakesGlassCard(cornerRadius: 12)
+                    .coppedGlassCard(cornerRadius: 12)
                 }
             }
         }
         .padding(14)
-        .clipStakesGlassCard(cornerRadius: 18)
+        .coppedGlassCard(cornerRadius: 18)
     }
 
     // MARK: - Blocked / Failure
@@ -931,7 +956,7 @@ struct CoppedCreatorExperience: ClipExperience {
         }
         .padding(.vertical, 24)
         .frame(maxWidth: .infinity)
-        .clipStakesGlassCard(cornerRadius: 18)
+        .coppedGlassCard(cornerRadius: 18)
     }
 
     private var failureState: some View {
@@ -958,7 +983,7 @@ struct CoppedCreatorExperience: ClipExperience {
         }
         .padding(.vertical, 24)
         .padding(.horizontal, 14)
-        .clipStakesGlassCard(cornerRadius: 18)
+        .coppedGlassCard(cornerRadius: 18)
     }
 
     // MARK: - Helpers
@@ -1055,7 +1080,14 @@ struct CoppedCreatorExperience: ClipExperience {
             let receipt = try await getReceipt()
             await MainActor.run {
                 products = receipt.products
-                step = .selectProduct
+                if let preferredID = preferredProductIDFromQuery,
+                   let preferred = receipt.products.first(where: {
+                       CoppedCatalog.canonicalProductID($0.id) == preferredID
+                   }) {
+                    beginRecording(for: preferred)
+                } else {
+                    step = .selectProduct
+                }
             }
         } catch {
             let fallbackProducts = await productsForUsedReceipt()
@@ -1121,15 +1153,17 @@ struct CoppedCreatorExperience: ClipExperience {
         }
 
         do {
-            let uploadResult = try await createUploadURL(productId: selectedProduct.id)
+            let backendProductID = CoppedCatalog.backendCompatibleProductID(selectedProduct.id)
+            let uploadResult = try await createUploadURL(productId: backendProductID)
             let upload = uploadResult.response
 
             var preparedVideoURL = recordedVideo.fileURL
-            if let sourceURL = preparedVideoURL, !trimmedTextOverlay.isEmpty {
-                let compositedURL = await CoppedVideoCompositor.addText(
+            if let sourceURL = preparedVideoURL {
+                let compositedURL = await CoppedVideoCompositor.renderForUpload(
                     to: sourceURL,
                     text: trimmedTextOverlay,
-                    position: textPosition
+                    position: textPosition,
+                    effectConfig: frontendEffectConfig
                 )
                 preparedVideoURL = compositedURL ?? sourceURL
             }
@@ -1143,12 +1177,23 @@ struct CoppedCreatorExperience: ClipExperience {
                 throw CreatorUploadError.remoteUploadFailed
             }
 
+            var didBakeVisualOverlays = false
+            if let originalURL = recordedVideo.fileURL, let preparedVideoURL {
+                didBakeVisualOverlays = preparedVideoURL != originalURL
+            }
+
+            var clipMetadataTextOverlay: String? = trimmedTextOverlay.isEmpty ? nil : trimmedTextOverlay
+            if didBakeVisualOverlays {
+                // Text has already been burned into exported media, avoid duplicate runtime caption in viewer.
+                clipMetadataTextOverlay = nil
+            }
+
             let createClipResult = try await createClip(
                 receiptId: receiptID,
                 deviceID: deviceID,
-                productId: selectedProduct.id,
+                productId: backendProductID,
                 videoURL: publishedVideo.videoURL,
-                textOverlay: trimmedTextOverlay.isEmpty ? nil : trimmedTextOverlay,
+                textOverlay: clipMetadataTextOverlay,
                 textPosition: textPosition,
                 durationSeconds: recordedVideo.durationSeconds
             )
@@ -1313,7 +1358,8 @@ struct CoppedCreatorExperience: ClipExperience {
 
     @MainActor
     private func viewerLink(for productID: String, clipID: String?) -> URL {
-        var components = URLComponents(string: "https://clip.copped.app/v/\(productID)")!
+        let canonicalProductID = CoppedCatalog.canonicalProductID(productID)
+        var components = URLComponents(string: "\(Self.runtimeInvocationBaseURL)/v/\(canonicalProductID)")!
         if let clipID, !clipID.isEmpty {
             components.queryItems = [URLQueryItem(name: "clip", value: clipID)]
         }
@@ -1322,7 +1368,7 @@ struct CoppedCreatorExperience: ClipExperience {
 
     @MainActor
     private func creatorDemoLink() -> URL {
-        URL(string: "https://clip.copped.app/c/demo")!
+        URL(string: "\(Self.runtimeInvocationBaseURL)/c/demo")!
     }
 
     private func openViewerForBlockedReceipt() async {
@@ -1452,7 +1498,7 @@ extension View {
     }
 
     /// Legacy name kept for files that still reference it.
-    func clipStakesGlassCard(cornerRadius: CGFloat = 22) -> some View {
+    func coppedGlassCard(cornerRadius: CGFloat = 22) -> some View {
         coppedGlass(cornerRadius: cornerRadius)
     }
 }
@@ -1709,7 +1755,7 @@ actor CoppedMockBackend {
             return existing
         }
 
-        let templateProducts = receipts["order_demo_hoodie"]?.productIDs ?? ["prod_hoodie", "prod_hat"]
+        let templateProducts = receipts["order_demo_hoodie"]?.productIDs ?? ["hoodie", "book", "food"]
         let receipt = CoppedReceipt(
             id: receiptId,
             productIDs: templateProducts,
@@ -1795,10 +1841,10 @@ actor CoppedMockBackend {
             clipID: clipID,
             walletCode: account.walletCode,
             instantCreditCents: Self.instantRewardCents,
-            instantCreditDisplay: Self.instantRewardCents.clipStakesCurrencyDisplay,
+            instantCreditDisplay: Self.instantRewardCents.coppedCurrencyDisplay,
             passURL: account.passURL,
             availableBalanceCents: account.availableBalanceCents,
-            availableBalanceDisplay: account.availableBalanceCents.clipStakesCurrencyDisplay,
+            availableBalanceDisplay: account.availableBalanceCents.coppedCurrencyDisplay,
             message: "Clip is live. Credit added to your wallet balance."
         )
     }
@@ -1831,7 +1877,7 @@ actor CoppedMockBackend {
             latestPushByClipID[clip.id] = CoppedNotificationEvent(
                 clipID: clip.id,
                 title: "Conversion reward earned",
-                body: "\(Self.conversionRewardCents.clipStakesCurrencyDisplay) added to your wallet balance.",
+                body: "\(Self.conversionRewardCents.coppedCurrencyDisplay) added to your wallet balance.",
                 passURL: account.passURL,
                 createdAt: Date()
             )
@@ -1843,9 +1889,9 @@ actor CoppedMockBackend {
         return CoppedConversionResponse(
             success: true,
             creditedCents: Self.conversionRewardCents,
-            creditedDisplay: Self.conversionRewardCents.clipStakesCurrencyDisplay,
+            creditedDisplay: Self.conversionRewardCents.coppedCurrencyDisplay,
             availableBalanceCents: account.availableBalanceCents,
-            availableBalanceDisplay: account.availableBalanceCents.clipStakesCurrencyDisplay,
+            availableBalanceDisplay: account.availableBalanceCents.coppedCurrencyDisplay,
             pushSent: withinPushWindow,
             withinPushWindow: withinPushWindow
         )
@@ -1897,9 +1943,9 @@ actor CoppedMockBackend {
             walletCode: account.walletCode,
             passURL: account.passURL,
             availableBalanceCents: account.availableBalanceCents,
-            availableBalanceDisplay: account.availableBalanceCents.clipStakesCurrencyDisplay,
+            availableBalanceDisplay: account.availableBalanceCents.coppedCurrencyDisplay,
             lifetimeEarnedCents: account.lifetimeEarnedCents,
-            lifetimeEarnedDisplay: account.lifetimeEarnedCents.clipStakesCurrencyDisplay,
+            lifetimeEarnedDisplay: account.lifetimeEarnedCents.coppedCurrencyDisplay,
             transactions: Array(account.transactions.prefix(20))
         )
     }
@@ -1916,6 +1962,9 @@ actor CoppedMockBackend {
         demoSeedKey = key
 
         let legacyMap: [String: String] = [
+            "hoodie": primary,
+            "book": secondary,
+            "food": tertiary,
             "prod_hoodie": primary,
             "prod_vinyl": secondary,
             "prod_hat": tertiary,
@@ -1946,7 +1995,7 @@ actor CoppedMockBackend {
 
         receipts["order_demo_hoodie"] = CoppedReceipt(
             id: "order_demo_hoodie",
-            productIDs: [primary, secondary],
+            productIDs: [primary, secondary, tertiary],
             clipCreated: false,
             createdAt: Date().addingTimeInterval(-3600)
         )
@@ -1967,8 +2016,8 @@ actor CoppedMockBackend {
         var seededReceipts: [String: CoppedReceipt] = [:]
 
         let starterReceipts: [CoppedReceipt] = [
-            CoppedReceipt(id: "order_demo_hoodie", productIDs: ["prod_hoodie", "prod_hat"], clipCreated: false, createdAt: Date().addingTimeInterval(-3600)),
-            CoppedReceipt(id: "order_demo_vinyl", productIDs: ["prod_vinyl"], clipCreated: false, createdAt: Date().addingTimeInterval(-2400)),
+            CoppedReceipt(id: "order_demo_hoodie", productIDs: ["hoodie", "book", "food"], clipCreated: false, createdAt: Date().addingTimeInterval(-3600)),
+            CoppedReceipt(id: "order_demo_vinyl", productIDs: ["book"], clipCreated: false, createdAt: Date().addingTimeInterval(-2400)),
         ]
 
         for receipt in starterReceipts {
@@ -1979,7 +2028,7 @@ actor CoppedMockBackend {
             Self.makeSeedClip(
                 clipId: "clip_seed_1",
                 receiptId: "seed_receipt_1",
-                productId: "prod_hoodie",
+                productId: "hoodie",
                 text: "OBSESSED",
                 position: .bottom,
                 conversions: 4,
@@ -1989,7 +2038,7 @@ actor CoppedMockBackend {
             Self.makeSeedClip(
                 clipId: "clip_seed_2",
                 receiptId: "seed_receipt_2",
-                productId: "prod_hoodie",
+                productId: "hoodie",
                 text: "Runs true to size",
                 position: .top,
                 conversions: 2,
@@ -1999,7 +2048,7 @@ actor CoppedMockBackend {
             Self.makeSeedClip(
                 clipId: "clip_seed_3",
                 receiptId: "seed_receipt_3",
-                productId: "prod_vinyl",
+                productId: "book",
                 text: "Sound quality is insane",
                 position: .center,
                 conversions: 1,
@@ -2082,7 +2131,7 @@ actor CoppedMockBackend {
             id: UUID().uuidString.lowercased(),
             kind: kind,
             amountCents: amountCents,
-            amountDisplay: amountCents.clipStakesCurrencyDisplay,
+            amountDisplay: amountCents.coppedCurrencyDisplay,
             clipID: clipID,
             orderID: orderID,
             createdAt: Date()
@@ -2181,6 +2230,54 @@ enum CoppedTextPosition: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum CoppedVideoLook: String, Codable, CaseIterable, Identifiable {
+    case none
+    case rioHeat
+    case goldenHour
+    case coolTeal
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .none: return "Natural"
+        case .rioHeat: return "Rio Heat"
+        case .goldenHour: return "Golden Hour"
+        case .coolTeal: return "Cool Teal"
+        }
+    }
+}
+
+enum CoppedVideoSticker: String, Codable, CaseIterable, Identifiable {
+    case none
+    case shootingStar
+    case dolphinSplash
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .none: return "No Sticker"
+        case .shootingStar: return "Shooting Star"
+        case .dolphinSplash: return "Dolphin Splash"
+        }
+    }
+}
+
+struct CoppedVideoEffectConfig: Codable, Hashable {
+    var look: CoppedVideoLook
+    var sticker: CoppedVideoSticker
+
+    static let rioDefault = CoppedVideoEffectConfig(
+        look: .rioHeat,
+        sticker: .none
+    )
+
+    var isNeutral: Bool {
+        look == .none && sticker == .none
+    }
+}
+
 enum CoppedCaptureMode: String, Codable {
     case camera
     case simulator
@@ -2220,11 +2317,9 @@ struct CoppedProduct: Identifiable, Hashable, Codable {
 
 enum CoppedCatalog {
     static let fallbackProducts: [CoppedProduct] = [
-        CoppedProduct(id: "prod_hoodie", name: "Venue Hoodie", price: 75.00, systemImage: "tshirt.fill"),
-        CoppedProduct(id: "prod_shirt", name: "Tour T-Shirt", price: 40.00, systemImage: "tshirt"),
-        CoppedProduct(id: "prod_vinyl", name: "Limited Vinyl", price: 35.00, systemImage: "opticaldisc.fill"),
-        CoppedProduct(id: "prod_hat", name: "Snapback Hat", price: 30.00, systemImage: "baseballcap.fill"),
-        CoppedProduct(id: "prod_poster", name: "Signed Poster", price: 20.00, systemImage: "photo.artframe"),
+        CoppedProduct(id: "hoodie", name: "Hoodie", price: 75.00, systemImage: "tshirt.fill"),
+        CoppedProduct(id: "book", name: "Book", price: 30.00, systemImage: "book.fill"),
+        CoppedProduct(id: "food", name: "Food", price: 20.00, systemImage: "fork.knife"),
     ]
 
     private static let lock = NSLock()
@@ -2234,8 +2329,9 @@ enum CoppedCatalog {
 
     static func updatePublicProducts(_ products: [CoppedProduct]) {
         guard !products.isEmpty else { return }
+        let normalized = products.map(normalizedDemoProduct)
         lock.lock()
-        runtimeProductsByID = Dictionary(uniqueKeysWithValues: products.map { ($0.id, $0) })
+        runtimeProductsByID = Dictionary(uniqueKeysWithValues: normalized.map { ($0.id, $0) })
         lock.unlock()
     }
 
@@ -2248,21 +2344,100 @@ enum CoppedCatalog {
     }
 
     static func product(for id: String) -> CoppedProduct {
+        let normalizedID = normalizedDemoProductID(id)
+
         lock.lock()
-        let runtime = runtimeProductsByID[id]
+        let runtime = runtimeProductsByID[id] ?? runtimeProductsByID[normalizedID]
         lock.unlock()
 
         if let runtime {
             return runtime
         }
 
-        return fallbackProducts.first(where: { $0.id == id })
+        return fallbackProducts.first(where: { $0.id == normalizedID })
             ?? CoppedProduct(
-                id: id,
-                name: id.replacingOccurrences(of: "_", with: " ").capitalized,
+                id: normalizedID,
+                name: normalizedID.replacingOccurrences(of: "_", with: " ").capitalized,
                 price: 25.00,
                 systemImage: "shippingbox.fill"
             )
+    }
+
+    static func canonicalProductID(_ id: String) -> String {
+        normalizedDemoProductID(id)
+    }
+
+    static func backendCompatibleProductID(_ id: String) -> String {
+        switch normalizedDemoProductID(id) {
+        case "hoodie":
+            return "prod_hoodie"
+        case "book":
+            return "prod_vinyl"
+        case "food":
+            return "prod_hat"
+        default:
+            return id
+        }
+    }
+
+    static func queryProductIDs(for id: String) -> [String] {
+        let canonical = normalizedDemoProductID(id)
+        let variants: [String]
+        switch canonical {
+        case "hoodie":
+            variants = [canonical, "prod_hoodie", "prod_shirt"]
+        case "book":
+            variants = [canonical, "prod_vinyl"]
+        case "food":
+            variants = [canonical, "prod_hat", "prod_poster"]
+        default:
+            variants = [id]
+        }
+
+        var seen = Set<String>()
+        return variants.filter { seen.insert($0).inserted }
+    }
+
+    private static func normalizedDemoProduct(_ product: CoppedProduct) -> CoppedProduct {
+        let normalizedID = normalizedDemoProductID(product.id)
+        if normalizedID == product.id {
+            return product
+        }
+
+        if let fallback = fallbackProducts.first(where: { $0.id == normalizedID }) {
+            return CoppedProduct(
+                id: normalizedID,
+                name: fallback.name,
+                price: product.price,
+                systemImage: fallback.systemImage,
+                imageURL: product.imageURL
+            )
+        }
+
+        return CoppedProduct(
+            id: normalizedID,
+            name: product.name,
+            price: product.price,
+            systemImage: product.systemImage,
+            imageURL: product.imageURL
+        )
+    }
+
+    private static func normalizedDemoProductID(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = trimmed.lowercased()
+        if lower.isEmpty { return raw }
+
+        switch lower {
+        case "hoodie", "prod_hoodie", "prod_shirt", "tour_t-shirt", "tour t-shirt":
+            return "hoodie"
+        case "book", "prod_vinyl":
+            return "book"
+        case "food", "prod_hat", "prod_poster":
+            return "food"
+        default:
+            return trimmed
+        }
     }
 }
 
@@ -2405,7 +2580,7 @@ enum CoppedBackendError: LocalizedError {
 }
 
 extension Date {
-    nonisolated func clipStakesRelativeDescription(reference: Date = Date()) -> String {
+    nonisolated func coppedRelativeDescription(reference: Date = Date()) -> String {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: self, relativeTo: reference)
@@ -2413,7 +2588,7 @@ extension Date {
 }
 
 extension Int {
-    nonisolated var clipStakesCurrencyDisplay: String {
+    nonisolated var coppedCurrencyDisplay: String {
         String(format: "$%.2f", Double(self) / 100.0)
     }
 }
@@ -2640,10 +2815,10 @@ enum CoppedRemoteBackend {
                 clipID: clipID,
                 walletCode: walletCode,
                 instantCreditCents: instantCreditCents,
-                instantCreditDisplay: instantCreditCents.clipStakesCurrencyDisplay,
+                instantCreditDisplay: instantCreditCents.coppedCurrencyDisplay,
                 passURL: passURL,
                 availableBalanceCents: availableBalanceCents,
-                availableBalanceDisplay: availableBalanceCents.clipStakesCurrencyDisplay,
+                availableBalanceDisplay: availableBalanceCents.coppedCurrencyDisplay,
                 message: message
             )
         } catch let error as CoppedRemoteBackendError {
@@ -2718,9 +2893,9 @@ enum CoppedRemoteBackend {
             walletCode: walletCode,
             passURL: passURL,
             availableBalanceCents: availableBalanceCents,
-            availableBalanceDisplay: availableBalanceCents.clipStakesCurrencyDisplay,
+            availableBalanceDisplay: availableBalanceCents.coppedCurrencyDisplay,
             lifetimeEarnedCents: lifetimeEarnedCents,
-            lifetimeEarnedDisplay: lifetimeEarnedCents.clipStakesCurrencyDisplay,
+            lifetimeEarnedDisplay: lifetimeEarnedCents.coppedCurrencyDisplay,
             transactions: transactions
         )
     }
@@ -2885,7 +3060,7 @@ enum CoppedRemoteBackend {
                 id: stringValue(for: ["id"], in: item) ?? UUID().uuidString.lowercased(),
                 kind: kind,
                 amountCents: amount,
-                amountDisplay: amount.clipStakesCurrencyDisplay,
+                amountDisplay: amount.coppedCurrencyDisplay,
                 clipID: stringValue(for: ["clip_id", "clipId"], in: item) ?? "",
                 orderID: stringValue(for: ["order_id", "orderId"], in: item),
                 createdAt: dateValue(for: ["created_at", "createdAt"], in: item) ?? Date()
@@ -2925,13 +3100,13 @@ enum CoppedRemoteBackend {
             for: ["credited_display", "creditedDisplay", "display"],
             in: raw,
             fallback: reward
-        ) ?? creditedCents.clipStakesCurrencyDisplay
+        ) ?? creditedCents.coppedCurrencyDisplay
 
         let availableBalanceDisplay = stringValue(
             for: ["available_balance_display", "availableBalanceDisplay", "available_display", "availableDisplay", "balance_display", "balanceDisplay"],
             in: raw,
             fallback: balances
-        ) ?? availableBalanceCents.clipStakesCurrencyDisplay
+        ) ?? availableBalanceCents.coppedCurrencyDisplay
 
         return CoppedConversionResponse(
             success: success,
@@ -2954,6 +3129,9 @@ enum CoppedRemoteBackend {
         let productDict = dictValue(for: ["product"], in: raw)
         let nestedVideo = dictValue(for: ["video"], in: raw)
         let nestedWallet = dictValue(for: ["wallet"], in: raw)
+        let nestedOverlay = dictValue(for: ["overlay"], in: raw)
+            ?? dictValue(for: ["caption"], in: raw)
+            ?? dictValue(for: ["text"], in: raw)
 
         let productID = stringValue(for: ["product_id", "productId"], in: raw)
             ?? stringValue(for: ["id", "product_id", "productId"], in: productDict ?? [:])
@@ -2964,7 +3142,13 @@ enum CoppedRemoteBackend {
             ?? urlValue(for: ["playback_url", "playbackURL"], in: raw, apiBaseURL: apiBaseURL)
         guard let videoURL else { return nil }
 
-        let textOverlay = stringValue(for: ["text_overlay", "textOverlay", "caption"], in: raw)
+        let textOverlay = stringValue(
+            for: ["text_overlay", "textOverlay", "caption", "text", "overlay_text", "overlayText"],
+            in: raw
+        ) ?? stringValue(
+            for: ["text_overlay", "textOverlay", "caption", "text", "overlay_text", "overlayText"],
+            in: nestedOverlay ?? [:]
+        )
         let textPositionRaw = stringValue(for: ["text_position", "textPosition"], in: raw)?.lowercased()
         let textPosition = CoppedTextPosition(rawValue: textPositionRaw ?? "") ?? .bottom
 
@@ -7525,11 +7709,28 @@ enum CoppedURLLauncher {
 
     @MainActor
     static func open(_ url: URL) async -> Bool {
-        await withCheckedContinuation { continuation in
+        if shouldRouteInternally(url) {
+            NotificationCenter.default.post(name: .clipRouterInvokeURL, object: url.absoluteString)
+            return true
+        }
+
+        return await withCheckedContinuation { continuation in
             UIApplication.shared.open(url, options: [:]) { success in
                 continuation.resume(returning: success)
             }
         }
+    }
+
+    private static func shouldRouteInternally(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased() else { return false }
+        let allowedHosts: Set<String> = [
+            "clip.copped.app",
+            "clipstakes.skilled5041.workers.dev",
+        ]
+        guard allowedHosts.contains(host) else { return false }
+
+        let path = url.path.lowercased()
+        return path.hasPrefix("/v/") || path.hasPrefix("/c/")
     }
 
     /// Downloads a .pkpass from the given URL and presents the native Add Pass sheet.
@@ -7622,12 +7823,36 @@ import Foundation
 import UIKit
 
 enum CoppedVideoCompositor {
+    private static let targetPortraitRenderSize = CGSize(width: 720, height: 1280)
+    private static let targetLandscapeRenderSize = CGSize(width: 1280, height: 720)
+    private static let targetFrameRate: Int32 = 30
+
     static func addText(
         to sourceURL: URL,
         text: String,
         position: CoppedTextPosition
     ) async -> URL? {
-        await withCheckedContinuation { continuation in
+        await renderForUpload(
+            to: sourceURL,
+            text: text,
+            position: position,
+            effectConfig: CoppedVideoEffectConfig(look: .none, sticker: .none)
+        )
+    }
+
+    static func renderForUpload(
+        to sourceURL: URL,
+        text: String,
+        position: CoppedTextPosition,
+        effectConfig: CoppedVideoEffectConfig
+    ) async -> URL? {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let shouldBypass = trimmedText.isEmpty && effectConfig.isNeutral
+        if shouldBypass {
+            return sourceURL
+        }
+
+        return await withCheckedContinuation { continuation in
             let asset = AVAsset(url: sourceURL)
             guard let videoTrack = asset.tracks(withMediaType: .video).first else {
                 continuation.resume(returning: nil)
@@ -7643,10 +7868,10 @@ enum CoppedVideoCompositor {
                 return
             }
 
-            do {
-                let fullRange = CMTimeRange(start: .zero, duration: asset.duration)
-                try compositionVideoTrack.insertTimeRange(fullRange, of: videoTrack, at: .zero)
+            let fullRange = CMTimeRange(start: .zero, duration: asset.duration)
 
+            do {
+                try compositionVideoTrack.insertTimeRange(fullRange, of: videoTrack, at: .zero)
                 if let audioTrack = asset.tracks(withMediaType: .audio).first,
                    let compositionAudioTrack = composition.addMutableTrack(
                     withMediaType: .audio,
@@ -7659,21 +7884,32 @@ enum CoppedVideoCompositor {
                 return
             }
 
-            let transform = videoTrack.preferredTransform
-            let transformedSize = videoTrack.naturalSize.applying(transform)
-            let renderSize = CGSize(width: abs(transformedSize.width), height: abs(transformedSize.height))
+            let sourceRect = CGRect(origin: .zero, size: videoTrack.naturalSize)
+                .applying(videoTrack.preferredTransform)
+            let orientedSize = CGSize(
+                width: abs(sourceRect.width),
+                height: abs(sourceRect.height)
+            )
+
+            let renderSize = normalizedRenderSize(for: orientedSize)
 
             let instruction = AVMutableVideoCompositionInstruction()
-            instruction.timeRange = CMTimeRange(start: .zero, duration: asset.duration)
+            instruction.timeRange = fullRange
 
             let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
-            layerInstruction.setTransform(transform, at: .zero)
+            let normalizedTransform = normalizedTransform(
+                preferredTransform: videoTrack.preferredTransform,
+                sourceRect: sourceRect,
+                orientedSize: orientedSize,
+                renderSize: renderSize
+            )
+            layerInstruction.setTransform(normalizedTransform, at: .zero)
             instruction.layerInstructions = [layerInstruction]
 
             let videoComposition = AVMutableVideoComposition()
             videoComposition.instructions = [instruction]
             videoComposition.renderSize = renderSize
-            videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+            videoComposition.frameDuration = CMTime(value: 1, timescale: targetFrameRate)
 
             let parentLayer = CALayer()
             parentLayer.frame = CGRect(origin: .zero, size: renderSize)
@@ -7682,38 +7918,25 @@ enum CoppedVideoCompositor {
             videoLayer.frame = CGRect(origin: .zero, size: renderSize)
             parentLayer.addSublayer(videoLayer)
 
-            let textLayer = CATextLayer()
-            textLayer.string = text
-            textLayer.alignmentMode = .center
-            textLayer.foregroundColor = UIColor.white.cgColor
-            textLayer.shadowColor = UIColor.black.withAlphaComponent(0.6).cgColor
-            textLayer.shadowOpacity = 1
-            textLayer.shadowRadius = 4
-            textLayer.shadowOffset = CGSize(width: 0, height: 2)
-            textLayer.fontSize = max(24, renderSize.width * 0.06)
-            textLayer.contentsScale = UIScreen.main.scale
+            addLookOverlayLayer(effectConfig.look, renderSize: renderSize, parentLayer: parentLayer)
+            let rawDuration = CMTimeGetSeconds(asset.duration)
+            let animationDuration = rawDuration.isFinite && rawDuration > 0 ? rawDuration : 8
 
-            let horizontalPadding = renderSize.width * 0.08
-            let textHeight = renderSize.height * 0.16
-
-            let yOrigin: CGFloat
-            switch position {
-            case .top:
-                yOrigin = renderSize.height * 0.12
-            case .center:
-                yOrigin = (renderSize.height - textHeight) / 2
-            case .bottom:
-                yOrigin = renderSize.height * 0.72
-            }
-
-            textLayer.frame = CGRect(
-                x: horizontalPadding,
-                y: yOrigin,
-                width: renderSize.width - (horizontalPadding * 2),
-                height: textHeight
+            addStickerLayer(
+                effectConfig.sticker,
+                renderSize: renderSize,
+                durationSeconds: animationDuration,
+                parentLayer: parentLayer
             )
 
-            parentLayer.addSublayer(textLayer)
+            if !trimmedText.isEmpty {
+                addTextLayer(
+                    text: trimmedText,
+                    position: position,
+                    renderSize: renderSize,
+                    parentLayer: parentLayer
+                )
+            }
 
             videoComposition.animationTool = AVVideoCompositionCoreAnimationTool(
                 postProcessingAsVideoLayer: videoLayer,
@@ -7747,18 +7970,379 @@ enum CoppedVideoCompositor {
             }
         }
     }
+
+    private static func normalizedRenderSize(for sourceSize: CGSize) -> CGSize {
+        sourceSize.height >= sourceSize.width ? targetPortraitRenderSize : targetLandscapeRenderSize
+    }
+
+    private static func normalizedTransform(
+        preferredTransform: CGAffineTransform,
+        sourceRect: CGRect,
+        orientedSize: CGSize,
+        renderSize: CGSize
+    ) -> CGAffineTransform {
+        let translated = preferredTransform.concatenating(
+            CGAffineTransform(translationX: -sourceRect.minX, y: -sourceRect.minY)
+        )
+
+        let scale = max(
+            renderSize.width / max(orientedSize.width, 1),
+            renderSize.height / max(orientedSize.height, 1)
+        )
+        let scaledWidth = orientedSize.width * scale
+        let scaledHeight = orientedSize.height * scale
+
+        let centerTranslation = CGAffineTransform(
+            translationX: (renderSize.width - scaledWidth) / 2,
+            y: (renderSize.height - scaledHeight) / 2
+        )
+
+        return translated
+            .concatenating(CGAffineTransform(scaleX: scale, y: scale))
+            .concatenating(centerTranslation)
+    }
+
+    private static func addLookOverlayLayer(
+        _ look: CoppedVideoLook,
+        renderSize: CGSize,
+        parentLayer: CALayer
+    ) {
+        guard look != .none else { return }
+
+        switch look {
+        case .none:
+            return
+        case .rioHeat:
+            let tint = CALayer()
+            tint.frame = CGRect(origin: .zero, size: renderSize)
+            tint.backgroundColor = UIColor(red: 1.0, green: 0.35, blue: 0.06, alpha: 0.14).cgColor
+            parentLayer.addSublayer(tint)
+
+            let glow = CAGradientLayer()
+            glow.frame = CGRect(origin: .zero, size: renderSize)
+            glow.colors = [
+                UIColor(red: 1.0, green: 0.6, blue: 0.14, alpha: 0.25).cgColor,
+                UIColor.clear.cgColor,
+                UIColor(red: 1.0, green: 0.22, blue: 0.08, alpha: 0.28).cgColor,
+            ]
+            glow.locations = [0.0, 0.48, 1.0]
+            parentLayer.addSublayer(glow)
+
+        case .goldenHour:
+            let tint = CALayer()
+            tint.frame = CGRect(origin: .zero, size: renderSize)
+            tint.backgroundColor = UIColor(red: 1.0, green: 0.72, blue: 0.28, alpha: 0.13).cgColor
+            parentLayer.addSublayer(tint)
+
+            let warmFade = CAGradientLayer()
+            warmFade.frame = CGRect(origin: .zero, size: renderSize)
+            warmFade.colors = [
+                UIColor(red: 1.0, green: 0.84, blue: 0.45, alpha: 0.22).cgColor,
+                UIColor.clear.cgColor,
+            ]
+            warmFade.startPoint = CGPoint(x: 0.2, y: 0.0)
+            warmFade.endPoint = CGPoint(x: 0.8, y: 1.0)
+            parentLayer.addSublayer(warmFade)
+
+        case .coolTeal:
+            let tint = CALayer()
+            tint.frame = CGRect(origin: .zero, size: renderSize)
+            tint.backgroundColor = UIColor(red: 0.02, green: 0.55, blue: 0.62, alpha: 0.12).cgColor
+            parentLayer.addSublayer(tint)
+
+            let coolGradient = CAGradientLayer()
+            coolGradient.frame = CGRect(origin: .zero, size: renderSize)
+            coolGradient.colors = [
+                UIColor(red: 0.05, green: 0.35, blue: 0.58, alpha: 0.25).cgColor,
+                UIColor.clear.cgColor,
+                UIColor(red: 0.12, green: 0.78, blue: 0.72, alpha: 0.2).cgColor,
+            ]
+            coolGradient.locations = [0.0, 0.45, 1.0]
+            parentLayer.addSublayer(coolGradient)
+        }
+    }
+
+    private static func addTextLayer(
+        text: String,
+        position: CoppedTextPosition,
+        renderSize: CGSize,
+        parentLayer: CALayer
+    ) {
+        let horizontalPadding = renderSize.width * 0.08
+        let textHeight = renderSize.height * 0.2
+        let width = renderSize.width - (horizontalPadding * 2)
+
+        let yOrigin: CGFloat
+        switch position {
+        case .top:
+            yOrigin = renderSize.height * 0.1
+        case .center:
+            yOrigin = (renderSize.height - textHeight) / 2
+        case .bottom:
+            yOrigin = renderSize.height * 0.68
+        }
+
+        let containerLayer = CALayer()
+        containerLayer.frame = CGRect(
+            x: horizontalPadding,
+            y: yOrigin,
+            width: width,
+            height: textHeight
+        )
+
+        let backgroundLayer = CAShapeLayer()
+        backgroundLayer.frame = containerLayer.bounds
+        backgroundLayer.path = UIBezierPath(
+            roundedRect: backgroundLayer.bounds.insetBy(dx: 2, dy: 2),
+            cornerRadius: 12
+        ).cgPath
+        backgroundLayer.fillColor = UIColor.black.withAlphaComponent(0.22).cgColor
+        containerLayer.addSublayer(backgroundLayer)
+
+        let textLayer = CATextLayer()
+        let fontSize = max(24, renderSize.width * 0.06)
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.lineBreakMode = .byWordWrapping
+        let attributed = NSAttributedString(
+            string: text.uppercased(),
+            attributes: [
+                .font: UIFont.systemFont(ofSize: fontSize, weight: .heavy),
+                .foregroundColor: UIColor.white,
+                .paragraphStyle: paragraph,
+                .kern: 0.5,
+            ]
+        )
+        textLayer.string = attributed
+        textLayer.alignmentMode = .center
+        textLayer.shadowColor = UIColor.black.withAlphaComponent(0.6).cgColor
+        textLayer.shadowOpacity = 1
+        textLayer.shadowRadius = 4
+        textLayer.shadowOffset = CGSize(width: 0, height: 2)
+        textLayer.isWrapped = true
+        textLayer.truncationMode = .end
+        textLayer.contentsScale = UIScreen.main.scale
+        textLayer.frame = CGRect(
+            x: 10,
+            y: 6,
+            width: width - 20,
+            height: textHeight - 12
+        )
+
+        containerLayer.addSublayer(textLayer)
+        parentLayer.addSublayer(containerLayer)
+    }
+
+    private static func addStickerLayer(
+        _ sticker: CoppedVideoSticker,
+        renderSize: CGSize,
+        durationSeconds: Double,
+        parentLayer: CALayer
+    ) {
+        guard sticker != .none else { return }
+
+        switch sticker {
+        case .none:
+            return
+        case .shootingStar:
+            let starLayer = CAShapeLayer()
+            starLayer.path = shootingStarGlyphPath(in: CGRect(x: 0, y: 0, width: 84, height: 84)).cgPath
+            starLayer.bounds = CGRect(x: 0, y: 0, width: 84, height: 84)
+            starLayer.fillColor = UIColor.white.withAlphaComponent(0.95).cgColor
+            starLayer.shadowColor = UIColor.white.withAlphaComponent(0.6).cgColor
+            starLayer.shadowOpacity = 1
+            starLayer.shadowRadius = 4
+            starLayer.opacity = 0
+            parentLayer.addSublayer(starLayer)
+
+            let trailLayer = CAShapeLayer()
+            trailLayer.path = UIBezierPath(roundedRect: CGRect(x: 0, y: 0, width: 120, height: 8), cornerRadius: 4).cgPath
+            trailLayer.bounds = CGRect(x: 0, y: 0, width: 120, height: 8)
+            trailLayer.fillColor = UIColor.white.withAlphaComponent(0.22).cgColor
+            trailLayer.opacity = 0
+            parentLayer.addSublayer(trailLayer)
+
+            let path = UIBezierPath()
+            path.move(to: CGPoint(x: -120, y: renderSize.height * 0.36))
+            path.addCurve(
+                to: CGPoint(x: renderSize.width + 120, y: renderSize.height * 0.34),
+                controlPoint1: CGPoint(x: renderSize.width * 0.2, y: renderSize.height * 0.26),
+                controlPoint2: CGPoint(x: renderSize.width * 0.75, y: renderSize.height * 0.4)
+            )
+
+            let move = CAKeyframeAnimation(keyPath: "position")
+            move.path = path.cgPath
+            move.duration = 1.6
+            move.repeatCount = Float(max(1, Int(durationSeconds / 1.6) + 1))
+            move.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            move.beginTime = AVCoreAnimationBeginTimeAtZero + 0.1
+
+            let fade = CAKeyframeAnimation(keyPath: "opacity")
+            fade.values = [0.0, 1.0, 1.0, 0.0]
+            fade.keyTimes = [0.0, 0.12, 0.78, 1.0]
+            fade.duration = 1.6
+            fade.repeatCount = move.repeatCount
+            fade.beginTime = move.beginTime
+
+            let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+            scale.values = [0.55, 1.0, 0.9]
+            scale.keyTimes = [0.0, 0.4, 1.0]
+            scale.duration = 1.6
+            scale.repeatCount = move.repeatCount
+            scale.beginTime = move.beginTime
+
+            starLayer.add(move, forKey: "shootingStarMove")
+            starLayer.add(fade, forKey: "shootingStarFade")
+            starLayer.add(scale, forKey: "shootingStarScale")
+
+            let trailMove = move.copy() as! CAKeyframeAnimation
+            let trailFade = fade.copy() as! CAKeyframeAnimation
+            trailFade.values = [0.0, 0.45, 0.22, 0.0]
+            let trailScale = CABasicAnimation(keyPath: "transform.scaleX")
+            trailScale.fromValue = 0.65
+            trailScale.toValue = 1.05
+            trailScale.duration = 1.6
+            trailScale.repeatCount = move.repeatCount
+            trailScale.beginTime = move.beginTime
+
+            trailLayer.add(trailMove, forKey: "shootingStarTrailMove")
+            trailLayer.add(trailFade, forKey: "shootingStarTrailFade")
+            trailLayer.add(trailScale, forKey: "shootingStarTrailScale")
+
+        case .dolphinSplash:
+            let dolphinLayer = CAShapeLayer()
+            dolphinLayer.path = dolphinGlyphPath(in: CGRect(x: 0, y: 0, width: 96, height: 64)).cgPath
+            dolphinLayer.bounds = CGRect(x: 0, y: 0, width: 96, height: 64)
+            dolphinLayer.fillColor = UIColor.white.withAlphaComponent(0.94).cgColor
+            dolphinLayer.shadowColor = UIColor.black.withAlphaComponent(0.3).cgColor
+            dolphinLayer.shadowRadius = 3
+            dolphinLayer.shadowOpacity = 1
+            dolphinLayer.opacity = 0.95
+            parentLayer.addSublayer(dolphinLayer)
+
+            let path = UIBezierPath()
+            let baseline = renderSize.height * 0.7
+            path.move(to: CGPoint(x: -80, y: baseline + 8))
+            path.addCurve(
+                to: CGPoint(x: renderSize.width + 80, y: baseline - 6),
+                controlPoint1: CGPoint(x: renderSize.width * 0.25, y: baseline - 85),
+                controlPoint2: CGPoint(x: renderSize.width * 0.75, y: baseline + 55)
+            )
+
+            let move = CAKeyframeAnimation(keyPath: "position")
+            move.path = path.cgPath
+            move.duration = 2.8
+            move.repeatCount = Float(max(1, Int(durationSeconds / 2.8) + 1))
+            move.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            move.beginTime = AVCoreAnimationBeginTimeAtZero + 0.2
+
+            let roll = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+            roll.values = [-0.18, 0.15, -0.08]
+            roll.keyTimes = [0.0, 0.5, 1.0]
+            roll.duration = 2.8
+            roll.repeatCount = move.repeatCount
+            roll.beginTime = move.beginTime
+
+            dolphinLayer.add(move, forKey: "dolphinMove")
+            dolphinLayer.add(roll, forKey: "dolphinRoll")
+
+            for index in 0..<4 {
+                let splash = CAShapeLayer()
+                let radius = CGFloat(8 + (index * 4))
+                splash.path = UIBezierPath(ovalIn: CGRect(x: -radius, y: -radius, width: radius * 2, height: radius * 2)).cgPath
+                splash.fillColor = UIColor.white.withAlphaComponent(0.35).cgColor
+                splash.position = CGPoint(x: renderSize.width * 0.5, y: baseline + 20)
+                splash.opacity = 0
+                parentLayer.addSublayer(splash)
+
+                let burst = CABasicAnimation(keyPath: "transform.scale")
+                burst.fromValue = 0.3
+                burst.toValue = 1.8
+                burst.duration = 0.8
+                burst.repeatCount = move.repeatCount * Float(1.8)
+                burst.beginTime = AVCoreAnimationBeginTimeAtZero + 0.35 + (Double(index) * 0.15)
+
+                let splashFade = CAKeyframeAnimation(keyPath: "opacity")
+                splashFade.values = [0.0, 0.55, 0.0]
+                splashFade.keyTimes = [0.0, 0.2, 1.0]
+                splashFade.duration = 0.8
+                splashFade.repeatCount = burst.repeatCount
+                splashFade.beginTime = burst.beginTime
+
+                splash.add(burst, forKey: "splashScale")
+                splash.add(splashFade, forKey: "splashFade")
+            }
+        }
+    }
+
+    private static func dolphinGlyphPath(in rect: CGRect) -> UIBezierPath {
+        let path = UIBezierPath()
+        let bodyRect = CGRect(
+            x: rect.minX + rect.width * 0.2,
+            y: rect.minY + rect.height * 0.25,
+            width: rect.width * 0.62,
+            height: rect.height * 0.5
+        )
+        path.append(UIBezierPath(ovalIn: bodyRect))
+
+        let tail = UIBezierPath()
+        tail.move(to: CGPoint(x: bodyRect.maxX - 2, y: bodyRect.midY))
+        tail.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + rect.height * 0.2))
+        tail.addLine(to: CGPoint(x: rect.maxX - 2, y: rect.maxY - rect.height * 0.2))
+        tail.close()
+        path.append(tail)
+
+        let fin = UIBezierPath()
+        fin.move(to: CGPoint(x: bodyRect.midX - 4, y: bodyRect.minY + 2))
+        fin.addLine(to: CGPoint(x: bodyRect.midX + 8, y: rect.minY))
+        fin.addLine(to: CGPoint(x: bodyRect.midX + 14, y: bodyRect.minY + 9))
+        fin.close()
+        path.append(fin)
+
+        return path
+    }
+
+    private static func shootingStarGlyphPath(in rect: CGRect) -> UIBezierPath {
+        let path = UIBezierPath()
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let outerRadius = min(rect.width, rect.height) * 0.5
+        let innerRadius = outerRadius * 0.44
+
+        for index in 0..<10 {
+            let angle = (CGFloat(index) * (.pi / 5)) - (.pi / 2)
+            let radius = index.isMultiple(of: 2) ? outerRadius : innerRadius
+            let point = CGPoint(
+                x: center.x + (cos(angle) * radius),
+                y: center.y + (sin(angle) * radius)
+            )
+
+            if index == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+        path.close()
+        return path
+    }
 }
 
 // MARK: - From Submissions/copped/CoppedVideoRecorder.swift
 
 import AVFoundation
 internal import Combine
+import CoreImage
 import SwiftUI
 import UIKit
+
+private enum CoppedLiveFXRuntime {
+    static let previewEnabled = false
+}
 
 struct CoppedVideoRecorder: View {
     let minDuration: TimeInterval
     let maxDuration: TimeInterval
+    @Binding var effectConfig: CoppedVideoEffectConfig
     let onRecorded: (CoppedRecordedVideo) -> Void
 
     @StateObject private var controller = CoppedCameraController()
@@ -7768,9 +8352,32 @@ struct CoppedVideoRecorder: View {
 
     private let simulatorTicker = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
 
+    init(
+        minDuration: TimeInterval,
+        maxDuration: TimeInterval,
+        effectConfig: Binding<CoppedVideoEffectConfig>,
+        onRecorded: @escaping (CoppedRecordedVideo) -> Void
+    ) {
+        self.minDuration = minDuration
+        self.maxDuration = maxDuration
+        _effectConfig = effectConfig
+        self.onRecorded = onRecorded
+    }
+
     private var recordingCanvasHeight: CGFloat {
         let screenHeight = UIScreen.main.bounds.height
-        return max(360, min(560, screenHeight * 0.62))
+        return max(250, min(390, screenHeight * 0.42))
+    }
+
+    private var effectsLocked: Bool {
+        if controller.useSimulatorFallback {
+            return simulatorRecording
+        }
+        return controller.isRecording || controller.isFinalizing
+    }
+
+    private var frontendEffectConfig: CoppedVideoEffectConfig {
+        CoppedVideoEffectConfig(look: effectConfig.look, sticker: .none)
     }
 
     var body: some View {
@@ -7779,6 +8386,23 @@ struct CoppedVideoRecorder: View {
                 simulatorBody
             } else {
                 cameraBody
+            }
+
+            if let message = controller.infoMessage {
+                HStack(spacing: 5) {
+                    Image(systemName: "sparkles")
+                        .font(.custom(Manrope.regular, size: 10))
+                    Text(message)
+                        .font(.custom(Manrope.medium, size: 11))
+                }
+                .foregroundStyle(.white.opacity(0.75))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity)
+                .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal, 12)
+                .padding(.bottom, 8)
             }
 
             if let message = controller.errorMessage ?? simulatorError {
@@ -7799,7 +8423,18 @@ struct CoppedVideoRecorder: View {
             }
         }
         .onAppear {
+            if effectConfig.sticker != .none {
+                effectConfig.sticker = .none
+            }
+            controller.updateEffectConfig(frontendEffectConfig)
             controller.prepare(minDuration: minDuration, maxDuration: maxDuration, onRecorded: onRecorded)
+        }
+        .onChange(of: effectConfig) { _, newValue in
+            let sanitized = CoppedVideoEffectConfig(look: newValue.look, sticker: .none)
+            if newValue.sticker != .none {
+                effectConfig = sanitized
+            }
+            controller.updateEffectConfig(sanitized)
         }
         .onDisappear {
             controller.stopSession()
@@ -7814,13 +8449,24 @@ struct CoppedVideoRecorder: View {
     }
 
     private var cameraBody: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
             ZStack(alignment: .topLeading) {
                 CoppedCameraPreview(session: controller.session)
                     .frame(maxWidth: .infinity)
                     .frame(height: recordingCanvasHeight)
                     .background(Color.black)
                     .clipShape(RoundedRectangle(cornerRadius: 18))
+
+                if controller.useLiveFXPreview,
+                   let previewImage = controller.previewImage {
+                    Image(uiImage: previewImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: recordingCanvasHeight)
+                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                }
 
                 LinearGradient(
                     colors: [Color.black.opacity(0.35), Color.clear, Color.black.opacity(0.45)],
@@ -7873,6 +8519,8 @@ struct CoppedVideoRecorder: View {
             )
             .padding(.horizontal, 2)
 
+            effectPickerCard
+
             if controller.isFinalizing {
                 HStack(spacing: 8) {
                     ProgressView()
@@ -7907,7 +8555,7 @@ struct CoppedVideoRecorder: View {
                 controller.isFinalizing
                     ? "Please wait while the clip is saved."
                     : (controller.isRecording
-                        ? "Recording live. Tap again to stop."
+                        ? "Recording live. Effects are locked until stop."
                         : "Capture a vertical clip (5-15s).")
             )
         }
@@ -7916,7 +8564,7 @@ struct CoppedVideoRecorder: View {
     }
 
     private var simulatorBody: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 16)
                     .fill(
@@ -7940,7 +8588,7 @@ struct CoppedVideoRecorder: View {
                     Text("Simulator Mode")
                         .font(.custom(Manrope.semiBold, size: 14))
                         .foregroundStyle(.white.opacity(0.6))
-                    Text("Use a physical iPhone for camera")
+                    Text("Effects preview is static in simulator")
                         .font(.custom(Manrope.medium, size: 11))
                         .foregroundStyle(.white.opacity(0.3))
                 }
@@ -7965,6 +8613,8 @@ struct CoppedVideoRecorder: View {
             )
             .padding(.horizontal, 2)
 
+            effectPickerCard
+
             let canStopRecording = simulatorElapsed >= minDuration
             recordButton(
                 isRecording: simulatorRecording,
@@ -7983,12 +8633,74 @@ struct CoppedVideoRecorder: View {
 
             recorderHint(
                 simulatorRecording
-                    ? "Recording simulated clip. Tap again to stop."
+                    ? "Recording simulated clip. Effects are locked until stop."
                     : "Simulator fallback still enforces 5-15 seconds."
             )
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 10)
+    }
+
+    private var effectPickerCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("RIO FX PACK")
+                .font(.custom(Manrope.extraBold, size: 10))
+                .tracking(1.1)
+                .foregroundStyle(.white.opacity(0.62))
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text("Look")
+                    .font(.custom(Manrope.medium, size: 10))
+                    .foregroundStyle(.white.opacity(0.5))
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 7) {
+                        ForEach(CoppedVideoLook.allCases) { look in
+                            effectChip(
+                                title: look.displayName,
+                                isSelected: effectConfig.look == look,
+                                disabled: effectsLocked
+                            ) {
+                                effectConfig.look = look
+                            }
+                        }
+                    }
+                    .padding(.vertical, 1)
+                }
+            }
+
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .coppedGlassCard(cornerRadius: 12)
+    }
+
+    private func effectChip(
+        title: String,
+        isSelected: Bool,
+        disabled: Bool,
+        onTap: @escaping () -> Void
+    ) -> some View {
+        Button(action: onTap) {
+            Text(title)
+                .font(.custom(Manrope.bold, size: 11))
+                .foregroundStyle(isSelected ? .white : .white.opacity(0.55))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    isSelected
+                        ? Color.white.opacity(0.18)
+                        : Color.white.opacity(0.05),
+                    in: Capsule()
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(Color.white.opacity(isSelected ? 0.28 : 0.1), lineWidth: 0.5)
+                )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(disabled)
+        .opacity(disabled ? 0.6 : 1.0)
     }
 
     private func recordButton(
@@ -8093,19 +8805,176 @@ struct CoppedVideoRecorder: View {
     }
 }
 
-@MainActor
+private struct CoppedStickerPreviewOverlay: View {
+    let sticker: CoppedVideoSticker
+    let isAnimating: Bool
+
+    @State private var transit: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                switch sticker {
+                case .none:
+                    EmptyView()
+
+                case .shootingStar:
+                    ZStack {
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.0),
+                                        Color.white.opacity(isAnimating ? 0.24 : 0.12),
+                                        Color.white.opacity(0.0),
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: 110, height: 5)
+                            .position(
+                                x: (-65 + (proxy.size.width + 130) * transit),
+                                y: proxy.size.height * 0.36 - (22 * sin(Double(transit) * .pi))
+                            )
+
+                        CoppedShootingStarGlyph()
+                            .fill(.white.opacity(isAnimating ? 0.92 : 0.62))
+                            .frame(width: 34, height: 34)
+                            .shadow(color: .white.opacity(0.5), radius: 7)
+                            .position(
+                                x: (-40 + (proxy.size.width + 80) * transit),
+                                y: proxy.size.height * 0.34 - (24 * sin(Double(transit) * .pi))
+                            )
+                    }
+
+                case .dolphinSplash:
+                    ZStack {
+                        ForEach(0..<3, id: \.self) { index in
+                            Circle()
+                                .stroke(Color.white.opacity(0.35), lineWidth: 1.2)
+                                .frame(width: CGFloat(18 + (index * 8)), height: CGFloat(18 + (index * 8)))
+                                .position(
+                                    x: proxy.size.width * 0.55,
+                                    y: proxy.size.height * 0.7
+                                )
+                                .opacity(isAnimating ? (0.2 + (Double(index) * 0.15)) : 0.1)
+                        }
+
+                        CoppedDolphinGlyph()
+                            .fill(.white.opacity(isAnimating ? 0.9 : 0.65))
+                            .frame(width: 64, height: 42)
+                            .shadow(color: .white.opacity(0.35), radius: 6)
+                            .rotationEffect(.degrees(-8 + (Double(transit) * 14)))
+                            .position(
+                                x: (-42 + (proxy.size.width + 84) * transit),
+                                y: proxy.size.height * 0.7 - (22 * sin(Double(transit) * .pi * 2))
+                            )
+                    }
+                }
+            }
+            .onAppear {
+                startAnimation()
+            }
+            .onChange(of: sticker) { _, _ in
+                restartAnimation()
+            }
+            .onChange(of: isAnimating) { _, _ in
+                restartAnimation()
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func restartAnimation() {
+        transit = 0
+        startAnimation()
+    }
+
+    private func startAnimation() {
+        guard sticker != .none else { return }
+        guard isAnimating else { return }
+
+        let duration: Double = sticker == .shootingStar ? 1.5 : 2.8
+        withAnimation(.linear(duration: duration).repeatForever(autoreverses: false)) {
+            transit = 1
+        }
+    }
+}
+
+private struct CoppedDolphinGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+
+        let bodyRect = CGRect(
+            x: rect.minX + rect.width * 0.2,
+            y: rect.minY + rect.height * 0.25,
+            width: rect.width * 0.62,
+            height: rect.height * 0.5
+        )
+        path.addEllipse(in: bodyRect)
+
+        var tail = Path()
+        tail.move(to: CGPoint(x: bodyRect.maxX - 1, y: bodyRect.midY))
+        tail.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + rect.height * 0.2))
+        tail.addLine(to: CGPoint(x: rect.maxX - 2, y: rect.maxY - rect.height * 0.2))
+        tail.closeSubpath()
+        path.addPath(tail)
+
+        var fin = Path()
+        fin.move(to: CGPoint(x: bodyRect.midX - 4, y: bodyRect.minY + 2))
+        fin.addLine(to: CGPoint(x: bodyRect.midX + 8, y: rect.minY))
+        fin.addLine(to: CGPoint(x: bodyRect.midX + 14, y: bodyRect.minY + 9))
+        fin.closeSubpath()
+        path.addPath(fin)
+
+        return path
+    }
+}
+
+private struct CoppedShootingStarGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let outer = min(rect.width, rect.height) * 0.5
+        let inner = outer * 0.44
+
+        for index in 0..<10 {
+            let angle = CGFloat(index) * (.pi / 5) - (.pi / 2)
+            let radius = index.isMultiple(of: 2) ? outer : inner
+            let point = CGPoint(
+                x: center.x + (cos(angle) * radius),
+                y: center.y + (sin(angle) * radius)
+            )
+            if index == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+        path.closeSubpath()
+        return path
+    }
+}
+
 final class CoppedCameraController: NSObject, ObservableObject {
     @Published var errorMessage: String?
+    @Published var infoMessage: String?
     @Published var isSessionRunning = false
     @Published var isRecording = false
     @Published var isFinalizing = false
     @Published var elapsed: TimeInterval = 0
     @Published var useSimulatorFallback = false
+    @Published var useLiveFXPreview = false
+    @Published var previewImage: UIImage?
 
     let session = AVCaptureSession()
 
     private let movieOutput = AVCaptureMovieFileOutput()
+    private let videoDataOutput = AVCaptureVideoDataOutput()
     private let sessionQueue = DispatchQueue(label: "copped.camera.session")
+    private let videoOutputQueue = DispatchQueue(label: "copped.camera.video-output")
+    private let ciContext = CIContext(options: [CIContextOption.useSoftwareRenderer: false])
 
     private var isConfigured = false
     private var minDuration: TimeInterval = 5
@@ -8113,6 +8982,9 @@ final class CoppedCameraController: NSObject, ObservableObject {
     private var recordingStartDate: Date?
     private var timer: Timer?
     private var onRecorded: ((CoppedRecordedVideo) -> Void)?
+    private var effectConfig: CoppedVideoEffectConfig = .rioDefault
+    private var lastPreviewTimestamp: Double = 0
+    private var didFallbackLiveFX = false
 
     func prepare(
         minDuration: TimeInterval,
@@ -8123,6 +8995,7 @@ final class CoppedCameraController: NSObject, ObservableObject {
         self.maxDuration = maxDuration
         self.onRecorded = onRecorded
         self.errorMessage = nil
+        self.infoMessage = nil
 
 #if targetEnvironment(simulator)
         useSimulatorFallback = true
@@ -8131,19 +9004,27 @@ final class CoppedCameraController: NSObject, ObservableObject {
             let cameraGranted = await requestVideoAccessIfNeeded()
 
             guard cameraGranted else {
-                errorMessage = "Camera permission is required to record clips."
+                DispatchQueue.main.async {
+                    self.errorMessage = "Camera permission is required to record clips."
+                }
                 return
             }
 
             let microphoneGranted = await requestAudioAccessIfNeeded()
             if !microphoneGranted {
-                errorMessage = "Microphone permission is off. Videos will record without audio."
+                DispatchQueue.main.async {
+                    self.errorMessage = "Microphone permission is off. Videos will record without audio."
+                }
             }
 
             configureSessionIfNeeded(includeAudio: microphoneGranted)
             startSession()
         }
 #endif
+    }
+
+    func updateEffectConfig(_ config: CoppedVideoEffectConfig) {
+        effectConfig = config
     }
 
     func startRecording() {
@@ -8180,8 +9061,9 @@ final class CoppedCameraController: NSObject, ObservableObject {
             if self.session.isRunning {
                 self.session.stopRunning()
             }
-            Task { @MainActor in
+            DispatchQueue.main.async {
                 self.isSessionRunning = false
+                self.previewImage = nil
             }
         }
 #endif
@@ -8263,6 +9145,50 @@ final class CoppedCameraController: NSObject, ObservableObject {
             session.addOutput(movieOutput)
         } else {
             errorMessage = "Unable to configure video output."
+            return
+        }
+
+        configureLiveFXOutputIfPossible()
+    }
+
+    private func configureLiveFXOutputIfPossible() {
+        guard CoppedLiveFXRuntime.previewEnabled else {
+            useLiveFXPreview = false
+            return
+        }
+
+        videoDataOutput.alwaysDiscardsLateVideoFrames = true
+        videoDataOutput.videoSettings = [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+        ]
+        videoDataOutput.setSampleBufferDelegate(self, queue: videoOutputQueue)
+
+        guard session.canAddOutput(videoDataOutput) else {
+            useLiveFXPreview = false
+            infoMessage = "Live effects preview unavailable on this device."
+            return
+        }
+
+        session.addOutput(videoDataOutput)
+
+        if let connection = videoDataOutput.connection(with: .video),
+           connection.isVideoOrientationSupported {
+            connection.videoOrientation = .portrait
+        }
+
+        useLiveFXPreview = true
+        didFallbackLiveFX = false
+        infoMessage = "Rio look previews are live. Final video is normalized to 720p/30fps."
+    }
+
+    private func fallbackToStandardPreviewIfNeeded() {
+        guard !didFallbackLiveFX else { return }
+        didFallbackLiveFX = true
+
+        DispatchQueue.main.async {
+            self.useLiveFXPreview = false
+            self.previewImage = nil
+            self.infoMessage = "Live effects preview failed. Recording continues with standard preview."
         }
     }
 
@@ -8270,13 +9196,13 @@ final class CoppedCameraController: NSObject, ObservableObject {
         sessionQueue.async { [weak self] in
             guard let self else { return }
             guard !self.session.isRunning else {
-                Task { @MainActor in
+                DispatchQueue.main.async {
                     self.isSessionRunning = true
                 }
                 return
             }
             self.session.startRunning()
-            Task { @MainActor in
+            DispatchQueue.main.async {
                 let didStart = self.session.isRunning
                 self.isSessionRunning = didStart
                 if !didStart, self.errorMessage == nil {
@@ -8340,6 +9266,83 @@ final class CoppedCameraController: NSObject, ObservableObject {
         )
     }
 
+    private static func previewImage(from sampleBuffer: CMSampleBuffer, look: CoppedVideoLook, ciContext: CIContext) -> UIImage? {
+        guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return nil }
+
+        var image = CIImage(cvPixelBuffer: imageBuffer)
+        image = applyLook(look, to: image)
+        image = image.oriented(forExifOrientation: 6)
+
+        let targetWidth: CGFloat = 520
+        let width = max(image.extent.width, 1)
+        let scale = targetWidth / width
+        let resized = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+
+        guard let cgImage = ciContext.createCGImage(resized, from: resized.extent) else {
+            return nil
+        }
+
+        return UIImage(cgImage: cgImage)
+    }
+
+    private static func applyLook(_ look: CoppedVideoLook, to input: CIImage) -> CIImage {
+        switch look {
+        case .none:
+            return input
+
+        case .rioHeat:
+            var image = input
+            image = applyColorControls(to: image, saturation: 1.22, contrast: 1.12, brightness: 0.04)
+            image = applyTemperature(to: image, neutral: CIVector(x: 6500, y: 0), target: CIVector(x: 8200, y: 20))
+            return image
+
+        case .goldenHour:
+            var image = input
+            image = applyColorControls(to: image, saturation: 1.15, contrast: 1.05, brightness: 0.05)
+            image = applySepia(to: image, intensity: 0.17)
+            return image
+
+        case .coolTeal:
+            var image = input
+            image = applyColorControls(to: image, saturation: 1.12, contrast: 1.1, brightness: -0.01)
+            image = applyTemperature(to: image, neutral: CIVector(x: 6500, y: 0), target: CIVector(x: 5000, y: -10))
+            return image
+        }
+    }
+
+    private static func applyColorControls(
+        to image: CIImage,
+        saturation: CGFloat,
+        contrast: CGFloat,
+        brightness: CGFloat
+    ) -> CIImage {
+        guard let filter = CIFilter(name: "CIColorControls") else { return image }
+        filter.setValue(image, forKey: kCIInputImageKey)
+        filter.setValue(saturation, forKey: kCIInputSaturationKey)
+        filter.setValue(contrast, forKey: kCIInputContrastKey)
+        filter.setValue(brightness, forKey: kCIInputBrightnessKey)
+        return filter.outputImage ?? image
+    }
+
+    private static func applyTemperature(
+        to image: CIImage,
+        neutral: CIVector,
+        target: CIVector
+    ) -> CIImage {
+        guard let filter = CIFilter(name: "CITemperatureAndTint") else { return image }
+        filter.setValue(image, forKey: kCIInputImageKey)
+        filter.setValue(neutral, forKey: "inputNeutral")
+        filter.setValue(target, forKey: "inputTargetNeutral")
+        return filter.outputImage ?? image
+    }
+
+    private static func applySepia(to image: CIImage, intensity: CGFloat) -> CIImage {
+        guard let filter = CIFilter(name: "CISepiaTone") else { return image }
+        filter.setValue(image, forKey: kCIInputImageKey)
+        filter.setValue(intensity, forKey: kCIInputIntensityKey)
+        return filter.outputImage ?? image
+    }
+
     private static func tempMovieURL() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("copped-\(UUID().uuidString).mov")
@@ -8347,12 +9350,12 @@ final class CoppedCameraController: NSObject, ObservableObject {
 }
 
 extension CoppedCameraController: AVCaptureFileOutputRecordingDelegate {
-    nonisolated func fileOutput(
+    func fileOutput(
         _ output: AVCaptureFileOutput,
         didStartRecordingTo fileURL: URL,
         from connections: [AVCaptureConnection]
     ) {
-        Task { @MainActor in
+        DispatchQueue.main.async {
             self.isRecording = true
             self.isFinalizing = false
             self.elapsed = 0
@@ -8360,14 +9363,44 @@ extension CoppedCameraController: AVCaptureFileOutputRecordingDelegate {
         }
     }
 
-    nonisolated func fileOutput(
+    func fileOutput(
         _ output: AVCaptureFileOutput,
         didFinishRecordingTo outputFileURL: URL,
         from connections: [AVCaptureConnection],
         error: Error?
     ) {
-        Task { @MainActor in
+        DispatchQueue.main.async {
             self.finishRecording(outputURL: outputFileURL, error: error)
+        }
+    }
+}
+
+extension CoppedCameraController: AVCaptureVideoDataOutputSampleBufferDelegate {
+    func captureOutput(
+        _ output: AVCaptureOutput,
+        didOutput sampleBuffer: CMSampleBuffer,
+        from connection: AVCaptureConnection
+    ) {
+        guard useLiveFXPreview else { return }
+
+        let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds
+        if timestamp.isFinite {
+            if timestamp - lastPreviewTimestamp < (1.0 / 12.0) {
+                return
+            }
+            lastPreviewTimestamp = timestamp
+        }
+
+        let look = effectConfig.look
+        guard let frame = Self.previewImage(from: sampleBuffer, look: look, ciContext: ciContext) else {
+            fallbackToStandardPreviewIfNeeded()
+            return
+        }
+
+        DispatchQueue.main.async {
+            if self.useLiveFXPreview {
+                self.previewImage = frame
+            }
         }
     }
 }
@@ -8536,6 +9569,7 @@ struct CoppedViewerExperience: ClipExperience {
     static let teamName = "Copped"
     static let touchpoint: JourneyTouchpoint = .onSite
     static let invocationSource: InvocationSource = .nfcTag
+    private static let runtimeInvocationBaseURL = "https://clipstakes.skilled5041.workers.dev"
 
     let context: ClipContext
 
@@ -8551,7 +9585,8 @@ struct CoppedViewerExperience: ClipExperience {
     private let deviceID = "copped-device-id"
 
     private var productID: String {
-        context.pathParameters["productId"] ?? "prod_hoodie"
+        let raw = context.pathParameters["productId"] ?? "hoodie"
+        return CoppedCatalog.canonicalProductID(raw)
     }
 
     private var storeDomainOverride: String? {
@@ -8660,18 +9695,29 @@ struct CoppedViewerExperience: ClipExperience {
     private var topHUD: some View {
         VStack(spacing: 8) {
             HStack {
-                VStack(alignment: .leading, spacing: 1) {
-                    CoppedInfoChip(title: "REAL CLIPS", icon: "play.rectangle.fill", tint: .white)
-
+                VStack(alignment: .leading, spacing: 4) {
                     Text(product.name)
-                        .font(.custom(Manrope.extraBold, size: 17))
+                        .font(.custom(Manrope.extraBold, size: 34))
                         .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
                     if !clips.isEmpty {
                         Text("Swipe for more")
-                            .font(.custom(Manrope.medium, size: 10))
-                            .foregroundStyle(.white.opacity(0.5))
+                            .font(.custom(Manrope.semiBold, size: 16))
+                            .foregroundStyle(.white.opacity(0.82))
                     }
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.black.opacity(0.28))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.white.opacity(0.14), lineWidth: 0.5)
+                )
+                .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
                 Spacer()
             }
 
@@ -8838,7 +9884,8 @@ struct CoppedViewerExperience: ClipExperience {
 
     @ViewBuilder
     private func positionedCaption(for clip: CoppedClip) -> some View {
-        if let text = clip.textOverlay, !text.isEmpty {
+        let text = clip.textOverlay?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !text.isEmpty {
             let caption = Text(text.uppercased())
                 .font(.custom(Manrope.extraBold, size: 24))
                 .foregroundStyle(.white)
@@ -8869,23 +9916,14 @@ struct CoppedViewerExperience: ClipExperience {
                 }
             }
         } else {
-            VStack {
-                Spacer(minLength: 0)
-                Text(clip.product.name)
-                    .font(.custom(Manrope.semiBold, size: 12))
-                    .foregroundStyle(.white.opacity(0.6))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-            }
+            EmptyView()
         }
     }
 
     // MARK: - Receipt Panel
 
     private func receiptPanel(outcome: CoppedCheckoutOutcome) -> some View {
-        let creatorURL = URL(string: "https://clip.copped.app/c/\(outcome.receiptID)")!
+        let creatorURL = URL(string: "\(Self.runtimeInvocationBaseURL)/c/\(outcome.receiptID)")!
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -8900,9 +9938,19 @@ struct CoppedViewerExperience: ClipExperience {
                 Spacer()
             }
 
-            Text("Demo receipt is ready. Open creator flow to record and claim reward.")
-                .font(.custom(Manrope.medium, size: 11))
-                .foregroundStyle(.white.opacity(0.65))
+            if let conversion = outcome.conversion, conversion.success {
+                Text("Someone bought from your reel. You earned \(conversion.creditedDisplay).")
+                    .font(.custom(Manrope.bold, size: 11))
+                    .foregroundStyle(.white)
+
+                Text("New wallet balance: \(conversion.availableBalanceDisplay)")
+                    .font(.custom(Manrope.medium, size: 10))
+                    .foregroundStyle(.white.opacity(0.62))
+            } else {
+                Text("Demo receipt is ready. Open creator flow to record and claim reward.")
+                    .font(.custom(Manrope.medium, size: 11))
+                    .foregroundStyle(.white.opacity(0.65))
+            }
 
             HStack(spacing: 8) {
                 Button("Open Creator") {
@@ -8938,7 +9986,7 @@ struct CoppedViewerExperience: ClipExperience {
 
         }
         .padding(10)
-        .clipStakesGlassCard(cornerRadius: 14)
+        .coppedGlassCard(cornerRadius: 14)
     }
 
     // MARK: - Backend
@@ -8954,14 +10002,32 @@ struct CoppedViewerExperience: ClipExperience {
         )
 
         do {
-            clips = try await CoppedRemoteBackend.getClips(
-                productId: productID,
-                apiBaseURL: apiBaseURL,
-                deviceID: deviceID
-            )
+            let queryIDs = CoppedCatalog.queryProductIDs(for: productID)
+            var loadedClips: [CoppedClip] = []
+
+            for id in queryIDs {
+                loadedClips = try await CoppedRemoteBackend.getClips(
+                    productId: id,
+                    apiBaseURL: apiBaseURL,
+                    deviceID: deviceID
+                )
+                if !loadedClips.isEmpty {
+                    break
+                }
+            }
+
+            clips = loadedClips
         } catch let error as CoppedRemoteBackendError where error.isConnectivityIssue {
             if allowMockFallback {
-                clips = await CoppedMockBackend.shared.getClips(productId: productID)
+                let queryIDs = CoppedCatalog.queryProductIDs(for: productID)
+                var loadedClips: [CoppedClip] = []
+                for id in queryIDs {
+                    loadedClips = await CoppedMockBackend.shared.getClips(productId: id)
+                    if !loadedClips.isEmpty {
+                        break
+                    }
+                }
+                clips = loadedClips
                 errorMessage = "Using local mock clips due to connectivity issue."
             } else {
                 clips = []
@@ -9019,8 +10085,9 @@ struct CoppedViewerExperience: ClipExperience {
         clipId: String?
     ) async throws -> CoppedCheckoutOutcome {
         do {
+            let backendProductID = CoppedCatalog.backendCompatibleProductID(productId)
             return try await CoppedRemoteBackend.performCheckout(
-                productId: productId,
+                productId: backendProductID,
                 clipId: clipId,
                 apiBaseURL: apiBaseURL,
                 deviceID: deviceID

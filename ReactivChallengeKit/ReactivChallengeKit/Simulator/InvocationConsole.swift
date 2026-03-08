@@ -12,8 +12,20 @@ struct InvocationConsole: View {
     @State private var urlText = ""
     @State private var nfcStatusMessage: String?
     @State private var showNFCSimulatorSheet = false
-    @State private var nfcPayloadText = "prod_hoodie"
+    @State private var nfcPayloadText = "clip.copped.app/v/hoodie"
     @FocusState private var isTextFieldFocused: Bool
+    
+    private let creatorPresets: [(label: String, payload: String)] = [
+        ("Demo Hoodie", "clip.copped.app/c/demo?product=hoodie"),
+        ("Demo Book", "clip.copped.app/c/demo?product=book"),
+        ("Demo Food", "clip.copped.app/c/demo?product=food"),
+    ]
+
+    private let viewerPresets: [(label: String, payload: String)] = [
+        ("View Hoodie", "clip.copped.app/v/hoodie"),
+        ("View Book", "clip.copped.app/v/book"),
+        ("View Food", "clip.copped.app/v/food"),
+    ]
 
     var body: some View {
         VStack(spacing: 8) {
@@ -114,22 +126,41 @@ struct InvocationConsole: View {
                 Text("Simulate NFC Tag Payload")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
 
-                Text("No paid Apple Developer account needed. Paste tag content as either a product ID (`prod_hoodie`) or full URL.")
+                Text("No paid Apple Developer account needed. Paste tag content as either a product ID (`hoodie`) or full URL.")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundStyle(.secondary)
 
-                TextField("prod_hoodie", text: $nfcPayloadText)
+                TextField("clip.copped.app/v/hoodie", text: $nfcPayloadText)
                     .font(.system(size: 16, weight: .semibold, design: .monospaced))
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
                     .padding(12)
                     .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
 
-                HStack(spacing: 8) {
-                    quickPayloadButton("prod_hoodie")
-                    quickPayloadButton("prod_shirt")
-                    quickPayloadButton("clip.copped.app/v/prod_hoodie")
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Quick Presets")
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 8) {
+                        ForEach(creatorPresets, id: \.label) { preset in
+                            quickPayloadButton(label: preset.label, payload: preset.payload)
+                        }
+                    }
+
+                    HStack(spacing: 8) {
+                        ForEach(viewerPresets, id: \.label) { preset in
+                            quickPayloadButton(label: preset.label, payload: preset.payload)
+                        }
+                    }
                 }
+
+                Text(nfcPayloadText)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .padding(.top, 2)
 
                 Spacer(minLength: 0)
 
@@ -144,12 +175,12 @@ struct InvocationConsole: View {
         .presentationDetents([.medium])
     }
 
-    private func quickPayloadButton(_ payload: String) -> some View {
+    private func quickPayloadButton(label: String, payload: String) -> some View {
         Button {
             nfcPayloadText = payload
         } label: {
-            Text(payload)
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+            Text(label)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .lineLimit(1)
         }
         .buttonStyle(.bordered)
@@ -170,7 +201,7 @@ struct InvocationConsole: View {
 
     private func invokeFromSimulatedNFC(payload: String) {
         guard let normalized = NFCInvocationScanner.normalizeInvocationURL(from: payload) else {
-            nfcStatusMessage = "Could not parse NFC payload. Use a product ID like prod_hoodie or full viewer URL."
+            nfcStatusMessage = "Could not parse NFC payload. Use a product ID like hoodie or full viewer/creator URL."
             return
         }
 

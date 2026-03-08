@@ -117,11 +117,28 @@ enum CoppedURLLauncher {
 
     @MainActor
     static func open(_ url: URL) async -> Bool {
-        await withCheckedContinuation { continuation in
+        if shouldRouteInternally(url) {
+            NotificationCenter.default.post(name: .clipRouterInvokeURL, object: url.absoluteString)
+            return true
+        }
+
+        return await withCheckedContinuation { continuation in
             UIApplication.shared.open(url, options: [:]) { success in
                 continuation.resume(returning: success)
             }
         }
+    }
+
+    private static func shouldRouteInternally(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased() else { return false }
+        let allowedHosts: Set<String> = [
+            "clip.copped.app",
+            "clipstakes.skilled5041.workers.dev",
+        ]
+        guard allowedHosts.contains(host) else { return false }
+
+        let path = url.path.lowercased()
+        return path.hasPrefix("/v/") || path.hasPrefix("/c/")
     }
 
     /// Downloads a .pkpass from the given URL and presents the native Add Pass sheet.

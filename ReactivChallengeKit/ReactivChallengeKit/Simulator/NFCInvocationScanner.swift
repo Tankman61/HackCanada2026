@@ -1,15 +1,26 @@
 import Foundation
 
 enum NFCInvocationScanner {
+    private static let invocationHosts = [
+        "clip.copped.app",
+        "clipstakes.skilled5041.workers.dev",
+    ]
+
     static func normalizeInvocationURL(from rawValue: String) -> String? {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
+
+        if trimmed.lowercased().hasPrefix("copped:") {
+            let payload = String(trimmed.dropFirst("copped:".count))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return normalizeInvocationURL(from: payload)
+        }
 
         if trimmed.contains("://") {
             return trimmed
         }
 
-        if trimmed.lowercased().hasPrefix("clip.copped.app/") {
+        if isInvocationURLWithoutScheme(trimmed) {
             return trimmed
         }
 
@@ -22,17 +33,13 @@ enum NFCInvocationScanner {
     }
 
     private static func extractProductID(from rawValue: String) -> String? {
-        let lowered = rawValue.lowercased()
-
-        if lowered.hasPrefix("copped:") {
-            let value = String(rawValue.dropFirst("copped:".count))
-            if value.contains("/v/") {
-                return value.components(separatedBy: "/v/").last
-            }
-            return value
-        }
-
         if let queryID = extractQueryValue(named: "productid", from: rawValue) {
+            return queryID
+        }
+        if let queryID = extractQueryValue(named: "product_id", from: rawValue) {
+            return queryID
+        }
+        if let queryID = extractQueryValue(named: "product", from: rawValue) {
             return queryID
         }
 
@@ -66,5 +73,22 @@ enum NFCInvocationScanner {
         guard value.count <= 80 else { return false }
         let invalid = CharacterSet(charactersIn: " /?&=#")
         return value.rangeOfCharacter(from: invalid) == nil
+    }
+
+    private static func isInvocationURLWithoutScheme(_ value: String) -> Bool {
+        let lowered = value.lowercased()
+
+        if value.hasPrefix("/v/") || value.hasPrefix("/c/") {
+            return true
+        }
+
+        for host in invocationHosts {
+            let withSlash = "\(host)/"
+            if lowered.hasPrefix(withSlash) {
+                return true
+            }
+        }
+
+        return false
     }
 }

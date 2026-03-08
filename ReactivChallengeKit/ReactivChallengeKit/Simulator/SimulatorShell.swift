@@ -31,6 +31,10 @@ struct SimulatorShell: View {
                 invocationStart = Date()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .clipRouterInvokeURL)) { notification in
+            guard let target = notification.object as? String else { return }
+            router.invoke(urlString: target)
+        }
     }
 }
 

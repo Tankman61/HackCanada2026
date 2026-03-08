@@ -9,6 +9,7 @@ struct CoppedViewerExperience: ClipExperience {
     static let teamName = "Copped"
     static let touchpoint: JourneyTouchpoint = .onSite
     static let invocationSource: InvocationSource = .nfcTag
+    private static let runtimeInvocationBaseURL = "https://clipstakes.skilled5041.workers.dev"
 
     let context: ClipContext
 
@@ -24,7 +25,8 @@ struct CoppedViewerExperience: ClipExperience {
     private let deviceID = "copped-device-id"
 
     private var productID: String {
-        context.pathParameters["productId"] ?? "prod_hoodie"
+        let raw = context.pathParameters["productId"] ?? "hoodie"
+        return CoppedCatalog.canonicalProductID(raw)
     }
 
     private var storeDomainOverride: String? {
@@ -133,18 +135,29 @@ struct CoppedViewerExperience: ClipExperience {
     private var topHUD: some View {
         VStack(spacing: 8) {
             HStack {
-                VStack(alignment: .leading, spacing: 1) {
-                    CoppedInfoChip(title: "REAL CLIPS", icon: "play.rectangle.fill", tint: .white)
-
+                VStack(alignment: .leading, spacing: 4) {
                     Text(product.name)
-                        .font(.custom(Manrope.extraBold, size: 17))
+                        .font(.custom(Manrope.extraBold, size: 34))
                         .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
                     if !clips.isEmpty {
                         Text("Swipe for more")
-                            .font(.custom(Manrope.medium, size: 10))
-                            .foregroundStyle(.white.opacity(0.5))
+                            .font(.custom(Manrope.semiBold, size: 16))
+                            .foregroundStyle(.white.opacity(0.82))
                     }
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.black.opacity(0.28))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.white.opacity(0.14), lineWidth: 0.5)
+                )
+                .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
                 Spacer()
             }
 
@@ -311,7 +324,8 @@ struct CoppedViewerExperience: ClipExperience {
 
     @ViewBuilder
     private func positionedCaption(for clip: CoppedClip) -> some View {
-        if let text = clip.textOverlay, !text.isEmpty {
+        let text = clip.textOverlay?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !text.isEmpty {
             let caption = Text(text.uppercased())
                 .font(.custom(Manrope.extraBold, size: 24))
                 .foregroundStyle(.white)
@@ -342,23 +356,14 @@ struct CoppedViewerExperience: ClipExperience {
                 }
             }
         } else {
-            VStack {
-                Spacer(minLength: 0)
-                Text(clip.product.name)
-                    .font(.custom(Manrope.semiBold, size: 12))
-                    .foregroundStyle(.white.opacity(0.6))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-            }
+            EmptyView()
         }
     }
 
     // MARK: - Receipt Panel
 
     private func receiptPanel(outcome: CoppedCheckoutOutcome) -> some View {
-        let creatorURL = URL(string: "https://clip.copped.app/c/\(outcome.receiptID)")!
+        let creatorURL = URL(string: "\(Self.runtimeInvocationBaseURL)/c/\(outcome.receiptID)")!
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -373,9 +378,19 @@ struct CoppedViewerExperience: ClipExperience {
                 Spacer()
             }
 
-            Text("Demo receipt is ready. Open creator flow to record and claim reward.")
-                .font(.custom(Manrope.medium, size: 11))
-                .foregroundStyle(.white.opacity(0.65))
+            if let conversion = outcome.conversion, conversion.success {
+                Text("Someone bought from your reel. You earned \(conversion.creditedDisplay).")
+                    .font(.custom(Manrope.bold, size: 11))
+                    .foregroundStyle(.white)
+
+                Text("New wallet balance: \(conversion.availableBalanceDisplay)")
+                    .font(.custom(Manrope.medium, size: 10))
+                    .foregroundStyle(.white.opacity(0.62))
+            } else {
+                Text("Demo receipt is ready. Open creator flow to record and claim reward.")
+                    .font(.custom(Manrope.medium, size: 11))
+                    .foregroundStyle(.white.opacity(0.65))
+            }
 
             HStack(spacing: 8) {
                 Button("Open Creator") {
@@ -411,7 +426,7 @@ struct CoppedViewerExperience: ClipExperience {
 
         }
         .padding(10)
-        .clipStakesGlassCard(cornerRadius: 14)
+        .coppedGlassCard(cornerRadius: 14)
     }
 
     // MARK: - Backend
@@ -427,14 +442,32 @@ struct CoppedViewerExperience: ClipExperience {
         )
 
         do {
-            clips = try await CoppedRemoteBackend.getClips(
-                productId: productID,
-                apiBaseURL: apiBaseURL,
-                deviceID: deviceID
-            )
+            let queryIDs = CoppedCatalog.queryProductIDs(for: productID)
+            var loadedClips: [CoppedClip] = []
+
+            for id in queryIDs {
+                loadedClips = try await CoppedRemoteBackend.getClips(
+                    productId: id,
+                    apiBaseURL: apiBaseURL,
+                    deviceID: deviceID
+                )
+                if !loadedClips.isEmpty {
+                    break
+                }
+            }
+
+            clips = loadedClips
         } catch let error as CoppedRemoteBackendError where error.isConnectivityIssue {
             if allowMockFallback {
-                clips = await CoppedMockBackend.shared.getClips(productId: productID)
+                let queryIDs = CoppedCatalog.queryProductIDs(for: productID)
+                var loadedClips: [CoppedClip] = []
+                for id in queryIDs {
+                    loadedClips = await CoppedMockBackend.shared.getClips(productId: id)
+                    if !loadedClips.isEmpty {
+                        break
+                    }
+                }
+                clips = loadedClips
                 errorMessage = "Using local mock clips due to connectivity issue."
             } else {
                 clips = []
@@ -492,8 +525,9 @@ struct CoppedViewerExperience: ClipExperience {
         clipId: String?
     ) async throws -> CoppedCheckoutOutcome {
         do {
+            let backendProductID = CoppedCatalog.backendCompatibleProductID(productId)
             return try await CoppedRemoteBackend.performCheckout(
-                productId: productId,
+                productId: backendProductID,
                 clipId: clipId,
                 apiBaseURL: apiBaseURL,
                 deviceID: deviceID

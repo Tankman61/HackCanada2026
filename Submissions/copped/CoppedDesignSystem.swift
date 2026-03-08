@@ -70,7 +70,7 @@ extension View {
     }
 
     /// Legacy name kept for files that still reference it.
-    func clipStakesGlassCard(cornerRadius: CGFloat = 22) -> some View {
+    func coppedGlassCard(cornerRadius: CGFloat = 22) -> some View {
         coppedGlass(cornerRadius: cornerRadius)
     }
 }
