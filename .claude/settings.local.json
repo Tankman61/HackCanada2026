@@ -2,10 +2,7 @@
   "permissions": {
     "allow": [
       "WebSearch",
-      "WebFetch(domain:bugfender.com)",
-      "Bash(mkdir:*)",
-      "Bash(cp:*)",
-      "Bash(*)"
+      "WebFetch(domain:bugfender.com)"
     ]
   }
 }
